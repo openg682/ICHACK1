@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charity Intelligence Map — Local Giving</title>
+
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Custom CSS -->
+<link rel="stylesheet" href="/static/css/styles.css" />
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">🎯</div>
+      <div class="logo-text">Charity<span>IQ</span></div>
+    </div>
+    <div class="search-container">
+      <span class="search-icon">⌕</span>
+      <input type="text" class="search-input" id="searchInput"
+             placeholder="Enter a UK postcode to discover local charities..."
+             autocomplete="off" />
+      <span class="search-hint">↵ Enter</span>
+    </div>
+    <div class="header-stats">
+      <div class="header-stat">
+        <div class="header-stat-value" id="statTotal">—</div>
+        <div class="header-stat-label">Nearby</div>
+      </div>
+      <div class="header-stat">
+        <div class="header-stat-value" id="statHighNeed">—</div>
+        <div class="header-stat-label">High Need</div>
+      </div>
+      <div class="header-stat">
+        <div class="header-stat-value" id="statMedian">—</div>
+        <div class="header-stat-label">Median Score</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="map-container">
+      <div id="map"></div>
+
+      <!-- Welcome overlay -->
+      <div class="welcome-overlay" id="welcome">
+        <div class="welcome-box">
+          <div class="welcome-icon">🗺️</div>
+          <div class="welcome-title">Discover <span>local charities</span> that need you most</div>
+          <div class="welcome-desc">
+            Enter a UK postcode to find nearby charities, ranked by need.
+            Our intelligence score identifies organisations that are underfunded,
+            overstretched, or showing financial warning signs.
+          </div>
+          <div class="welcome-postcodes">
+            <div class="welcome-pc">SE1 7PB</div>
+            <div class="welcome-pc">E1 6AN</div>
+            <div class="welcome-pc">N1 9GU</div>
+            <div class="welcome-pc">SW1A 1AA</div>
+            <div class="welcome-pc">M1 1AD</div>
+            <div class="welcome-pc">BS1 1JG</div>
+          </div>
+          <div class="welcome-sub">Data from Charity Commission for England &amp; Wales · Open Government Licence v3.0</div>
+        </div>
+      </div>
+
+      <!-- Map Legend -->
+      <div class="map-overlay" id="mapOverlay" style="display:none;">
+        <div class="map-legend">
+          <h4>Need Score</h4>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--need-critical)"></div> Critical (75+)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--need-high)"></div> High (50–74)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--need-medium)"></div> Medium (25–49)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--need-low)"></div> Low (0–24)</div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls-bar" id="controlsBar" style="display:none;">
+        <div class="control-group">
+          <span class="control-label">Radius</span>
+          <input type="range" class="radius-slider" id="radiusSlider" min="1" max="20" value="5" />
+          <span class="radius-value" id="radiusValue">5 km</span>
+        </div>
+        <div class="filter-chips" id="filterChips"></div>
+      </div>
+
+      <div class="data-banner" id="dataBanner" style="display:none;">
+        📊 Source: <a href="https://register-of-charities.charitycommission.gov.uk/" target="_blank">Charity Commission for England &amp; Wales</a><br>
+        Open Government Licence v3.0
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Charities by Need Score</div>
+        <div class="sidebar-subtitle" id="sidebarSub">Search a postcode to begin</div>
+      </div>
+      <div class="charity-list" id="charityList">
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">Enter a postcode</div>
+          <div class="empty-desc">
+            Search for a UK postcode to discover charities near you,
+            ranked by which ones need support the most.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Overlay -->
+<div class="detail-overlay" id="detailOverlay"></div>
+<div id="detailPanel" style="display:none;"></div>
+
+<!-- Libraries -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Data -->
+<script src="/static/data/demo_data.js"></script>
+<script src="/static/data/charities_data.js" onerror="console.log('No generated data file — using demo data')"></script>
+
+<!-- Frontend JS Modules -->
+<script type="module" src="/static/js/utils.js"></script>
+<script type="module" src="/static/js/map.js"></script>
+<script type="module" src="/static/js/search.js"></script>
+<script type="module" src="/static/js/sidebar.js"></script>
+<script type="module" src="/static/js/filters.js"></script>
+<script type="module" src="/static/js/detail.js"></script>
+
+<!-- Main Orchestrator -->
+<script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
