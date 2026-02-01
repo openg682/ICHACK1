@@ -37,6 +37,7 @@ var DEMO_DATA = [
   {n:"1097672",nm:"SHEFFIELD FLOURISH",pc:"S3 8GG",lat:53.3832,lng:-1.4718,inc:280000,exp:295000,res:22000,emp:5,vol:35,cat:["Medical/Health/Sickness"],ben:["The General Public/Mankind"],act:"Mental health charity in Sheffield run by and for people with mental health challenges. Peer support and creative activities.",reg:"2003-06-20",ns:72,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:10,late_filing:0},rm:0.9,it:-0.08,sr:1.054,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"}],ar:[{d:"2023-03-31",i:280000,e:295000},{d:"2022-03-31",i:304000,e:290000},{d:"2021-03-31",i:320000,e:305000}],dist:"Sheffield"}
 ];
 
+
 var DEMO_META = {
   source: "Charity Commission for England & Wales",
   licence: "Open Government Licence v3.0",
