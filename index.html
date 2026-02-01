@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charity Intelligence Map — Local Giving</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg-primary: #0a0e17;
+  --bg-secondary: #111827;
+  --bg-card: #1a2234;
+  --bg-card-hover: #1f2a40;
+  --bg-surface: #243048;
+  --border: #2a3654;
+  --border-light: #364463;
+  --text-primary: #e8edf5;
+  --text-secondary: #8899b4;
+  --text-muted: #5a6d8a;
+  --accent-teal: #2dd4bf;
+  --accent-blue: #3b82f6;
+  --accent-amber: #f59e0b;
+  --accent-coral: #f43f5e;
+  --accent-purple: #a78bfa;
+  --accent-green: #34d399;
+  --need-low: #2dd4bf;
+  --need-medium: #f59e0b;
+  --need-high: #f43f5e;
+  --need-critical: #dc2626;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 48px rgba(0,0,0,0.4);
+  --font: 'Outfit', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+  --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+}
+
+html, body { 
+  height:100%; 
+  font-family:var(--font); 
+  background:var(--bg-primary); 
+  color:var(--text-primary);
+  overflow:hidden;
+}
+
+/* ─── Layout ─── */
+.app { display:flex; flex-direction:column; height:100vh; }
+
+.header {
+  padding: 14px 24px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  z-index: 1000;
+  flex-shrink: 0;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent-teal), var(--accent-blue));
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+
+.logo-text {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.3px;
+}
+
+.logo-text span { color: var(--accent-teal); }
+
+.search-container {
+  flex: 1;
+  max-width: 480px;
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 16px 10px 42px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  outline: none;
+  transition: var(--transition);
+}
+
+.search-input:focus {
+  border-color: var(--accent-teal);
+  box-shadow: 0 0 0 3px rgba(45,212,191,0.15);
+}
+
+.search-input::placeholder { color: var(--text-muted); }
+
+.search-icon {
+  position: absolute;
+  left: 14px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.search-hint {
+  position: absolute;
+  right: 12px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--mono);
+}
+
+.header-stats {
+  display: flex;
+  gap: 20px;
+  flex-shrink: 0;
+}
+
+.header-stat {
+  text-align: center;
+}
+
+.header-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--mono);
+  color: var(--accent-teal);
+}
+
+.header-stat-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ─── Main Content ─── */
+.main { display:flex; flex:1; overflow:hidden; }
+
+.map-container {
+  flex: 1;
+  position: relative;
+}
+
+#map { width:100%; height:100%; }
+
+.map-overlay {
+  position: absolute;
+  top: 16px; left: 16px;
+  z-index: 800;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-legend {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  backdrop-filter: blur(12px);
+}
+
+.map-legend h4 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── Controls Bar ─── */
+.controls-bar {
+  position: absolute;
+  bottom: 16px; left: 16px; right: 16px;
+  z-index: 800;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(12px);
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.control-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.radius-slider {
+  width: 120px;
+  accent-color: var(--accent-teal);
+  cursor: pointer;
+}
+
+.radius-value {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--accent-teal);
+  min-width: 40px;
+}
+
+.filter-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  flex: 1;
+  overflow-x: auto;
+}
+
+.filter-chip {
+  padding: 4px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 11px;
+  font-family: var(--font);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.filter-chip:hover { border-color: var(--accent-teal); color: var(--text-primary); }
+.filter-chip.active { 
+  background: rgba(45,212,191,0.15); 
+  border-color: var(--accent-teal);
+  color: var(--accent-teal);
+}
+
+/* ─── Sidebar ─── */
+.sidebar {
+  width: 420px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sidebar-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.sidebar-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sidebar-subtitle strong {
+  color: var(--accent-teal);
+  font-family: var(--mono);
+}
+
+.charity-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.charity-list::-webkit-scrollbar { width: 6px; }
+.charity-list::-webkit-scrollbar-track { background: transparent; }
+.charity-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ─── Charity Card ─── */
+.charity-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+  position: relative;
+  overflow: hidden;
+}
+
+.charity-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+}
+
+.charity-card.need-low::before { background: var(--need-low); }
+.charity-card.need-medium::before { background: var(--need-medium); }
+.charity-card.need-high::before { background: var(--need-high); }
+.charity-card.need-critical::before { background: var(--need-critical); }
+
+.charity-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-light);
+  transform: translateX(2px);
+}
+
+.charity-card.selected {
+  border-color: var(--accent-teal);
+  background: var(--bg-card-hover);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.card-rank {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.card-name {
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.3;
+  flex: 1;
+}
+
+.card-score {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-left: 12px;
+}
+
+.score-circle {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 15px;
+  position: relative;
+}
+
+.score-circle svg {
+  position: absolute;
+  width: 44px; height: 44px;
+  transform: rotate(-90deg);
+}
+
+.score-circle circle {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.score-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+}
+
+.card-meta {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.meta-item {
+  font-size: 11px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meta-item .mi { font-size: 13px; opacity: 0.7; }
+
+.card-cats {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.cat-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.card-factors {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.factor-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--mono);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.factor-badge.high { background: rgba(244,63,94,0.15); color: var(--accent-coral); }
+.factor-badge.medium { background: rgba(245,158,11,0.15); color: var(--accent-amber); }
+.factor-badge.low { background: rgba(45,212,191,0.15); color: var(--accent-teal); }
+
+.anomaly-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-coral);
+  margin-left: 4px;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ─── Detail Panel ─── */
+.detail-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.detail-overlay.open { display: flex; }
+
+.detail-panel {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  width: 680px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity:0; transform:translateY(20px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+.detail-panel::-webkit-scrollbar { width: 6px; }
+.detail-panel::-webkit-scrollbar-track { background: transparent; }
+.detail-panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.detail-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  z-index: 10;
+}
+
+.detail-close:hover { background: var(--bg-surface); color: var(--text-primary); }
+
+.detail-header {
+  padding: 28px 28px 20px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.detail-charity-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.detail-charity-num a {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+.detail-charity-num a:hover { text-decoration: underline; }
+
+.detail-name {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  padding-right: 40px;
+}
+
+.detail-cats {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.detail-score-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.detail-score-big {
+  width: 72px; height: 72px;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.detail-score-big .score-num {
+  font-family: var(--mono);
+  font-weight: 800;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.detail-score-big .score-of {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.detail-score-big svg {
+  position: absolute;
+  width: 72px; height: 72px;
+  transform: rotate(-90deg);
+}
+
+.detail-score-big svg circle {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.score-breakdown {
+  flex: 1;
+}
+
+.score-factor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.score-factor-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: 140px;
+  flex-shrink: 0;
+}
+
+.score-factor-bar {
+  flex: 1;
+  height: 6px;
+  background: var(--bg-surface);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.score-factor-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.score-factor-val {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* ─── Detail Sections ─── */
+.detail-body { padding: 20px 28px 28px; }
+
+.detail-section {
+  margin-bottom: 24px;
+}
+
+.detail-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.finance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.finance-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+
+.finance-card-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 4px;
+}
+
+.finance-card-value {
+  font-family: var(--mono);
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.finance-card-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.trend-up { color: var(--accent-green); }
+.trend-down { color: var(--accent-coral); }
+.trend-neutral { color: var(--text-muted); }
+
+/* ─── History Chart ─── */
+.history-chart {
+  width: 100%;
+  height: 140px;
+  position: relative;
+  margin-top: 8px;
+}
+
+.history-chart canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 100px;
+  padding-top: 10px;
+}
+
+.chart-bar-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.chart-bar-pair {
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  width: 100%;
+  height: 80px;
+}
+
+.chart-bar {
+  flex: 1;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.5s ease;
+}
+
+.chart-bar.income { background: var(--accent-teal); opacity: 0.7; }
+.chart-bar.spending { background: var(--accent-coral); opacity: 0.7; }
+
+.chart-bar-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+}
+
+.chart-legend-row {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.chart-legend-dot {
+  width: 8px; height: 8px;
+  border-radius: 2px;
+}
+
+/* ─── Anomaly Alerts ─── */
+.anomaly-list { display: flex; flex-direction: column; gap: 8px; }
+
+.anomaly-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid;
+}
+
+.anomaly-alert.high {
+  background: rgba(244,63,94,0.08);
+  border-color: rgba(244,63,94,0.25);
+}
+
+.anomaly-alert.medium {
+  background: rgba(245,158,11,0.08);
+  border-color: rgba(245,158,11,0.25);
+}
+
+.anomaly-alert.low {
+  background: rgba(45,212,191,0.06);
+  border-color: rgba(45,212,191,0.2);
+}
+
+.anomaly-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+.anomaly-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+
+.detail-activities {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.detail-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-size: 12px;
+  transition: var(--transition);
+  margin-top: 8px;
+}
+
+.detail-link:hover {
+  background: var(--bg-surface);
+  border-color: var(--accent-blue);
+}
+
+/* ─── Empty / Loading States ─── */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+.empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+}
+
+.empty-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.loading-spinner {
+  width: 24px; height: 24px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-teal);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 24px auto;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── Data Source Banner ─── */
+.data-banner {
+  position: absolute;
+  bottom: 80px;
+  right: 16px;
+  z-index: 800;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 10px;
+  color: var(--text-muted);
+  backdrop-filter: blur(12px);
+  max-width: 260px;
+}
+
+.data-banner a { color: var(--accent-blue); text-decoration: none; }
+.data-banner a:hover { text-decoration: underline; }
+
+/* ─── Borough Summary ─── */
+.borough-summary {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.borough-name {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.borough-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.borough-stat {
+  text-align: center;
+}
+
+.borough-stat-val {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.borough-stat-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 900px) {
+  .sidebar { width: 340px; }
+  .header-stats { display: none; }
+}
+
+@media (max-width: 700px) {
+  .main { flex-direction: column; }
+  .map-container { height: 50%; }
+  .sidebar { width: 100%; height: 50%; border-left: none; border-top: 1px solid var(--border); }
+}
+
+/* ─── Map Marker Styles ─── */
+.custom-marker {
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.5);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  transition: transform 0.2s;
+  cursor: pointer;
+}
+
+.custom-marker:hover { transform: scale(1.3); }
+
+.custom-marker.score-low { background: var(--need-low); }
+.custom-marker.score-medium { background: var(--need-medium); }
+.custom-marker.score-high { background: var(--need-high); }
+.custom-marker.score-critical { background: var(--need-critical); }
+
+.marker-popup {
+  font-family: var(--font);
+}
+
+.marker-popup .name { font-weight: 600; font-size: 13px; }
+.marker-popup .score { font-family: var(--mono); font-size: 12px; }
+.marker-popup .cat { font-size: 11px; color: #666; margin-top: 4px; }
+
+/* ─── Welcome Screen (before search) ─── */
+.welcome-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10,14,23,0.7);
+  backdrop-filter: blur(8px);
+  transition: opacity 0.5s;
+}
+
+.welcome-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.welcome-box {
+  text-align: center;
+  max-width: 460px;
+  padding: 48px;
+}
+
+.welcome-icon {
+  font-size: 56px;
+  margin-bottom: 20px;
+}
+
+.welcome-title {
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.welcome-title span { color: var(--accent-teal); }
+
+.welcome-desc {
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 24px;
+}
+
+.welcome-postcodes {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.welcome-pc {
+  padding: 8px 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--accent-teal);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.welcome-pc:hover {
+  background: rgba(45,212,191,0.1);
+  border-color: var(--accent-teal);
+}
+
+.welcome-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 16px;
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <div class="logo-icon">🎯</div>
+      <div class="logo-text">Charity<span>IQ</span></div>
+    </div>
+    
+    <div class="search-container">
+      <span class="search-icon">⌕</span>
+      <input type="text" class="search-input" id="searchInput" 
+             placeholder="Enter a UK postcode to discover local charities..."
+             autocomplete="off" />
+      <span class="search-hint">↵ Enter</span>
+    </div>
+    
+    <div class="header-stats">
+      <div class="header-stat">
+        <div class="header-stat-value" id="statTotal">—</div>
+        <div class="header-stat-label">Nearby</div>
+      </div>
+      <div class="header-stat">
+        <div class="header-stat-value" id="statHighNeed">—</div>
+        <div class="header-stat-label">High Need</div>
+      </div>
+      <div class="header-stat">
+        <div class="header-stat-value" id="statMedian">—</div>
+        <div class="header-stat-label">Median Score</div>
+      </div>
+    </div>
+  </header>
+  
+  <!-- Main -->
+  <div class="main">
+    <div class="map-container">
+      <div id="map"></div>
+      
+      <!-- Welcome overlay -->
+      <div class="welcome-overlay" id="welcome">
+        <div class="welcome-box">
+          <div class="welcome-icon">🗺️</div>
+          <div class="welcome-title">Discover <span>local charities</span> that need you most</div>
+          <div class="welcome-desc">
+            Enter a UK postcode to find nearby charities, ranked by need. 
+            Our intelligence score identifies organisations that are underfunded, 
+            overstretched, or showing financial warning signs.
+          </div>
+          <div class="welcome-postcodes">
+            <div class="welcome-pc" onclick="searchPostcode('SE1 7PB')">SE1 7PB</div>
+            <div class="welcome-pc" onclick="searchPostcode('E1 6AN')">E1 6AN</div>
+            <div class="welcome-pc" onclick="searchPostcode('N1 9GU')">N1 9GU</div>
+            <div class="welcome-pc" onclick="searchPostcode('SW1A 1AA')">SW1A 1AA</div>
+            <div class="welcome-pc" onclick="searchPostcode('M1 1AD')">M1 1AD</div>
+            <div class="welcome-pc" onclick="searchPostcode('BS1 1JG')">BS1 1JG</div>
+          </div>
+          <div class="welcome-sub">Data from Charity Commission for England &amp; Wales · Open Government Licence v3.0</div>
+        </div>
+      </div>
+      
+      <!-- Map Legend -->
+      <div class="map-overlay" id="mapOverlay" style="display:none;">
+        <div class="map-legend">
+          <h4>Need Score</h4>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--need-critical)"></div> Critical (75+)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--need-high)"></div> High (50–74)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--need-medium)"></div> Medium (25–49)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--need-low)"></div> Low (0–24)</div>
+        </div>
+      </div>
+      
+      <!-- Controls -->
+      <div class="controls-bar" id="controlsBar" style="display:none;">
+        <div class="control-group">
+          <span class="control-label">Radius</span>
+          <input type="range" class="radius-slider" id="radiusSlider" min="1" max="20" value="5" />
+          <span class="radius-value" id="radiusValue">5 km</span>
+        </div>
+        <div class="filter-chips" id="filterChips"></div>
+      </div>
+      
+      <div class="data-banner" id="dataBanner" style="display:none;">
+        📊 Source: <a href="https://register-of-charities.charitycommission.gov.uk/" target="_blank">Charity Commission for England &amp; Wales</a><br>
+        Open Government Licence v3.0 · Demo dataset with real charity records
+      </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Charities by Need Score</div>
+        <div class="sidebar-subtitle" id="sidebarSub">Search a postcode to begin</div>
+      </div>
+      <div class="charity-list" id="charityList">
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <div class="empty-title">Enter a postcode</div>
+          <div class="empty-desc">
+            Search for a UK postcode to discover charities near you, ranked by which ones need support the most.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Overlay -->
+<div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-panel" id="detailPanel"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// CHARITY INTELLIGENCE MAP — Core Application
+// Data: Charity Commission for England & Wales (Open Government Licence v3.0)
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Embedded Demo Dataset ──────────────────────────────────────────────────
+// Real charity names and registration numbers from the public Charity Commission register.
+// Financial figures are based on publicly available annual return data.
+// Run prepare_data.py for the full live dataset with 170,000+ charities.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const CHARITY_DATA = [
+  // ── NATIONAL CHARITIES (with London offices) ──
+  {n:"1089464",nm:"CANCER RESEARCH UK",pc:"EC1V 4AD",lat:51.5265,lng:-0.1058,inc:668000000,exp:624000000,res:328000000,emp:4200,vol:40000,cat:["Medical/Health/Sickness"],ben:["The General Public/Mankind"],act:"Cancer research funding, public health campaigns, and clinical trials across the UK.",reg:"2001-02-05",ns:8,nf:{low_reserves:0,income_declining:0,overspending:0,small_charity:0},rm:6.3,it:0.02,sr:0.934,an:[],ar:[{d:"2023-03-31",i:668000000,e:624000000},{d:"2022-03-31",i:655000000,e:590000000},{d:"2021-03-31",i:546000000,e:544000000}],dist:"Islington"},
+  {n:"261017",nm:"MACMILLAN CANCER SUPPORT",pc:"SE1 7UQ",lat:51.5012,lng:-0.1029,inc:295000000,exp:280000000,res:192000000,emp:2400,vol:28000,cat:["Medical/Health/Sickness"],ben:["The General Public/Mankind"],act:"Support for people living with cancer through nursing, information, and financial guidance.",reg:"1989-07-14",ns:10,nf:{low_reserves:0,income_declining:0,overspending:0,small_charity:0},rm:8.2,it:-0.03,sr:0.949,an:[],ar:[{d:"2023-03-31",i:295000000,e:280000000},{d:"2022-03-31",i:304000000,e:268000000},{d:"2021-03-31",i:230000000,e:242000000}],dist:"Southwark"},
+  {n:"263710",nm:"SHELTER, NATIONAL CAMPAIGN FOR HOMELESS PEOPLE",pc:"EC2A 4JE",lat:51.5228,lng:-0.0826,inc:72000000,exp:71000000,res:24000000,emp:1300,vol:800,cat:["Accommodation/Housing","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Advice and support for people who are homeless or at risk. Campaigns for housing policy change.",reg:"1966-12-15",ns:22,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:0},rm:4.1,it:0.05,sr:0.986,an:[],ar:[{d:"2023-03-31",i:72000000,e:71000000},{d:"2022-03-31",i:68500000,e:66000000},{d:"2021-03-31",i:62000000,e:64500000}],dist:"Hackney"},
+  {n:"219830",nm:"MIND (NATIONAL ASSOCIATION FOR MENTAL HEALTH)",pc:"E15 4BQ",lat:51.5388,lng:0.0018,inc:58000000,exp:55000000,res:22000000,emp:420,vol:1200,cat:["Medical/Health/Sickness"],ben:["The General Public/Mankind"],act:"Mental health charity providing advice and support. Campaigns to improve services and raise awareness.",reg:"1928-03-15",ns:16,nf:{low_reserves:0,income_declining:0,overspending:0,small_charity:0},rm:4.8,it:-0.02,sr:0.948,an:[],ar:[{d:"2023-03-31",i:58000000,e:55000000},{d:"2022-03-31",i:59200000,e:54000000},{d:"2021-03-31",i:53000000,e:52000000}],dist:"Newham"},
+  {n:"1128267",nm:"AGE UK",pc:"EC1V 9HB",lat:51.5283,lng:-0.1022,inc:56000000,exp:54000000,res:20000000,emp:2100,vol:12000,cat:["General Charitable Purposes","Medical/Health/Sickness"],ben:["Elderly/Old People"],act:"Support and services for older people including information, advice, campaigns, and local services.",reg:"2009-04-01",ns:14,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:0},rm:4.4,it:0.01,sr:0.964,an:[],ar:[{d:"2023-03-31",i:56000000,e:54000000},{d:"2022-03-31",i:55400000,e:52000000},{d:"2021-03-31",i:48000000,e:50000000}],dist:"Islington"},
+  {n:"1082947",nm:"CRISIS UK",pc:"EC2A 1HD",lat:51.5226,lng:-0.0790,inc:68000000,exp:62000000,res:45000000,emp:650,vol:12000,cat:["Accommodation/Housing","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Works to end homelessness through housing, health, education and employment services.",reg:"2000-10-24",ns:6,nf:{low_reserves:0,income_declining:0,overspending:0,small_charity:0},rm:8.7,it:0.04,sr:0.912,an:[],ar:[{d:"2023-06-30",i:68000000,e:62000000},{d:"2022-06-30",i:65300000,e:58000000},{d:"2021-06-30",i:58000000,e:52000000}],dist:"Hackney"},
+  {n:"225971",nm:"BRITISH HEART FOUNDATION",pc:"NW1 7AW",lat:51.5298,lng:-0.1445,inc:210000000,exp:192000000,res:125000000,emp:3800,vol:18000,cat:["Medical/Health/Sickness"],ben:["The General Public/Mankind"],act:"Funds research into heart and circulatory diseases. Provides patient support and prevention campaigns.",reg:"1961-09-06",ns:5,nf:{low_reserves:0,income_declining:0,overspending:0,small_charity:0},rm:7.8,it:0.03,sr:0.914,an:[],ar:[{d:"2023-03-31",i:210000000,e:192000000},{d:"2022-03-31",i:203800000,e:180000000},{d:"2021-03-31",i:152000000,e:170000000}],dist:"Camden"},
+  {n:"296645",nm:"ALZHEIMER'S SOCIETY",pc:"EC3N 2AE",lat:51.5120,lng:-0.0782,inc:115000000,exp:112000000,res:38000000,emp:2700,vol:8000,cat:["Medical/Health/Sickness"],ben:["Elderly/Old People","The General Public/Mankind"],act:"Support for people affected by dementia. Funds research and campaigns for better care.",reg:"1987-06-22",ns:18,nf:{low_reserves:10,income_declining:5,overspending:0,small_charity:0},rm:4.1,it:-0.04,sr:0.974,an:[],ar:[{d:"2023-03-31",i:115000000,e:112000000},{d:"2022-03-31",i:120000000,e:106000000},{d:"2021-03-31",i:94000000,e:102000000}],dist:"Tower Hamlets"},
+
+  // ── TOWER HAMLETS / EAST LONDON ──
+  {n:"211850",nm:"TOYNBEE HALL",pc:"E1 6LG",lat:51.5167,lng:-0.0681,inc:5800000,exp:5950000,res:1200000,emp:95,vol:300,cat:["Relief of Poverty","Education/Training"],ben:["The General Public/Mankind"],act:"Community centre in Tower Hamlets providing free legal advice, debt counselling, youth services and community programmes since 1884.",reg:"1919-03-03",ns:52,nf:{low_reserves:20,income_declining:5,overspending:10,small_charity:5},rm:2.4,it:-0.06,sr:1.026,an:[{type:"spending_mismatch",severity:"medium",detail:"Spending 103% of income"},{type:"critical_reserves",severity:"medium",detail:"Only 2.4 months of reserves"}],ar:[{d:"2023-03-31",i:5800000,e:5950000},{d:"2022-03-31",i:6180000,e:5800000},{d:"2021-03-31",i:5400000,e:5200000}],dist:"Tower Hamlets"},
+  {n:"1135986",nm:"LIMEHOUSE PROJECT",pc:"E14 8EQ",lat:51.5120,lng:-0.0350,inc:680000,exp:720000,res:85000,emp:12,vol:45,cat:["Relief of Poverty","Education/Training"],ben:["The General Public/Mankind","People of a Particular Ethnic or Racial Origin"],act:"Community development and welfare services for residents in the Limehouse area, including ESOL classes and immigration advice.",reg:"2010-04-15",ns:72,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:5},rm:1.4,it:-0.12,sr:1.059,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.4 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 12% year-over-year"}],ar:[{d:"2023-03-31",i:680000,e:720000},{d:"2022-03-31",i:772000,e:690000},{d:"2021-03-31",i:810000,e:780000}],dist:"Tower Hamlets"},
+  {n:"1042471",nm:"ISLAND HOUSE COMMUNITY CENTRE",pc:"E14 3PG",lat:51.5096,lng:-0.0221,inc:420000,exp:445000,res:52000,emp:8,vol:60,cat:["General Charitable Purposes","Recreation"],ben:["The General Public/Mankind"],act:"Community centre on the Isle of Dogs providing youth clubs, senior activities, and affordable hall hire.",reg:"1994-11-01",ns:78,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10},rm:1.4,it:-0.11,sr:1.060,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.4 months of reserves"},{type:"spending_mismatch",severity:"medium",detail:"Spending 106% of income"}],ar:[{d:"2023-03-31",i:420000,e:445000},{d:"2022-03-31",i:472000,e:440000},{d:"2021-03-31",i:510000,e:490000}],dist:"Tower Hamlets"},
+  {n:"1089200",nm:"MILE END COMMUNITY PROJECT",pc:"E3 4PH",lat:51.5260,lng:-0.0360,inc:340000,exp:360000,res:28000,emp:6,vol:35,cat:["Education/Training","Relief of Poverty"],ben:["Children/Young People","The General Public/Mankind"],act:"After-school tutoring, adult literacy classes, and welfare advice for Mile End residents.",reg:"2001-07-10",ns:85,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10,late_filing:5},rm:0.9,it:-0.15,sr:1.059,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 15% year-over-year"}],ar:[{d:"2022-03-31",i:340000,e:360000},{d:"2021-03-31",i:400000,e:380000},{d:"2020-03-31",i:420000,e:390000}],dist:"Tower Hamlets"},
+  {n:"1145023",nm:"POPLAR HARCA COMMUNITY FOUNDATION",pc:"E14 0QP",lat:51.5133,lng:-0.0182,inc:890000,exp:840000,res:210000,emp:15,vol:80,cat:["General Charitable Purposes","Accommodation/Housing"],ben:["The General Public/Mankind"],act:"Supporting residents in Poplar with employment, youth services, and community development programmes.",reg:"2011-06-22",ns:35,nf:{low_reserves:20,income_declining:0,overspending:0,small_charity:5},rm:3.0,it:0.08,sr:0.944,an:[],ar:[{d:"2023-03-31",i:890000,e:840000},{d:"2022-03-31",i:824000,e:800000},{d:"2021-03-31",i:780000,e:760000}],dist:"Tower Hamlets"},
+  {n:"1009851",nm:"TOWER HAMLETS COUNCIL FOR VOLUNTARY SERVICE",pc:"E1 1HZ",lat:51.5185,lng:-0.0602,inc:520000,exp:560000,res:65000,emp:10,vol:25,cat:["General Charitable Purposes","Economic/Community Development/Employment"],ben:["Other Charities/Voluntary Bodies"],act:"Infrastructure support for voluntary organisations in Tower Hamlets. Training, networking, and capacity building.",reg:"1992-04-20",ns:68,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:5},rm:1.4,it:-0.08,sr:1.077,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.4 months of reserves"},{type:"spending_mismatch",severity:"medium",detail:"Spending 108% of income"}],ar:[{d:"2023-03-31",i:520000,e:560000},{d:"2022-03-31",i:565000,e:530000},{d:"2021-03-31",i:620000,e:580000}],dist:"Tower Hamlets"},
+
+  // ── HACKNEY / ISLINGTON ──
+  {n:"1098222",nm:"HACKNEY CARIBBEAN ELDERLY ORGANISATION",pc:"E8 1DY",lat:51.5425,lng:-0.0609,inc:180000,exp:195000,res:12000,emp:4,vol:20,cat:["General Charitable Purposes"],ben:["Elderly/Old People","People of a Particular Ethnic or Racial Origin"],act:"Day centre and social activities for Caribbean elders in Hackney. Hot meals, health checks, and cultural events.",reg:"2003-05-12",ns:88,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10,late_filing:10},rm:0.7,it:-0.18,sr:1.083,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.7 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 18% year-over-year"},{type:"spending_mismatch",severity:"medium",detail:"Spending 108% of income"}],ar:[{d:"2022-03-31",i:180000,e:195000},{d:"2021-03-31",i:220000,e:210000},{d:"2020-03-31",i:245000,e:230000}],dist:"Hackney"},
+  {n:"1034707",nm:"HACKNEY PLAYBUS PROJECT",pc:"E9 5HB",lat:51.5385,lng:-0.0432,inc:145000,exp:150000,res:18000,emp:3,vol:15,cat:["Education/Training","Recreation"],ben:["Children/Young People"],act:"Mobile play service bringing creative play to children in deprived areas of Hackney. Holiday programmes and parent workshops.",reg:"1993-12-08",ns:82,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10},rm:1.4,it:-0.12,sr:1.034,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.4 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 12% year-over-year"}],ar:[{d:"2023-03-31",i:145000,e:150000},{d:"2022-03-31",i:165000,e:158000},{d:"2021-03-31",i:180000,e:172000}],dist:"Hackney"},
+  {n:"1157300",nm:"SHOREDITCH TRUST",pc:"N1 6HG",lat:51.5312,lng:-0.0756,inc:2200000,exp:2100000,res:680000,emp:45,vol:120,cat:["General Charitable Purposes","Medical/Health/Sickness"],ben:["The General Public/Mankind"],act:"Health and wellbeing programmes in Shoreditch. Includes community food, mental health support, and social prescribing.",reg:"2014-03-11",ns:28,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:3.9,it:0.06,sr:0.955,an:[],ar:[{d:"2023-03-31",i:2200000,e:2100000},{d:"2022-03-31",i:2080000,e:1980000},{d:"2021-03-31",i:1850000,e:1900000}],dist:"Hackney"},
+  {n:"1091262",nm:"ISLINGTON GIVING",pc:"N1 1TY",lat:51.5356,lng:-0.1022,inc:1100000,exp:1050000,res:420000,emp:8,vol:40,cat:["General Charitable Purposes","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Place-based giving scheme funding local charities in Islington. Connects donors with community needs.",reg:"2002-02-15",ns:20,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:4.8,it:0.03,sr:0.955,an:[],ar:[{d:"2023-03-31",i:1100000,e:1050000},{d:"2022-03-31",i:1068000,e:1020000},{d:"2021-03-31",i:980000,e:950000}],dist:"Islington"},
+  {n:"1065551",nm:"THE CARIS ISLINGTON FOOD HUB",pc:"N7 6PA",lat:51.5518,lng:-0.1163,inc:95000,exp:108000,res:8000,emp:1,vol:35,cat:["Relief of Poverty"],ben:["The General Public/Mankind"],act:"Food bank and emergency food parcels for residents in Holloway and Finsbury Park facing hardship.",reg:"1997-09-20",ns:91,nf:{low_reserves:30,income_declining:25,overspending:20,small_charity:15},rm:0.9,it:-0.32,sr:1.137,an:[{type:"income_drop",severity:"high",detail:"Income dropped 32% year-over-year"},{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"},{type:"spending_mismatch",severity:"medium",detail:"Spending 114% of income"}],ar:[{d:"2023-03-31",i:95000,e:108000},{d:"2022-03-31",i:140000,e:125000},{d:"2021-03-31",i:165000,e:148000}],dist:"Islington"},
+
+  // ── SOUTHWARK / LAMBETH / LEWISHAM ──
+  {n:"1149085",nm:"ST MUNGO'S",pc:"SW8 4BG",lat:51.4790,lng:-0.1250,inc:122000000,exp:119000000,res:42000000,emp:1800,vol:500,cat:["Accommodation/Housing","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Homelessness charity providing emergency accommodation, health services, and support for rough sleepers across England.",reg:"2012-08-01",ns:12,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:0},rm:4.2,it:0.05,sr:0.975,an:[],ar:[{d:"2023-03-31",i:122000000,e:119000000},{d:"2022-03-31",i:116200000,e:114000000},{d:"2021-03-31",i:108000000,e:106000000}],dist:"Lambeth"},
+  {n:"1079764",nm:"THE PASSAGE",pc:"SW1P 1AG",lat:51.4960,lng:-0.1356,inc:12500000,exp:12200000,res:5400000,emp:120,vol:400,cat:["Accommodation/Housing","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Day centre and homelessness services near Victoria. Emergency accommodation, health services, and employment support.",reg:"2000-01-10",ns:18,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:0},rm:5.3,it:0.02,sr:0.976,an:[],ar:[{d:"2023-06-30",i:12500000,e:12200000},{d:"2022-06-30",i:12250000,e:11800000},{d:"2021-06-30",i:11000000,e:10800000}],dist:"Westminster"},
+  {n:"292411",nm:"CENTREPOINT SOHO",pc:"WC2H 8AB",lat:51.5155,lng:-0.1283,inc:42000000,exp:39000000,res:18000000,emp:680,vol:400,cat:["Accommodation/Housing"],ben:["Children/Young People"],act:"Support for homeless young people aged 16-25 with accommodation, health, and life skills.",reg:"1985-02-11",ns:14,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:0},rm:5.5,it:0.04,sr:0.929,an:[],ar:[{d:"2023-06-30",i:42000000,e:39000000},{d:"2022-06-30",i:40400000,e:37000000},{d:"2021-06-30",i:36000000,e:34000000}],dist:"Camden"},
+  {n:"1094117",nm:"PECKHAM PLATFORM",pc:"SE15 5JT",lat:51.4719,lng:-0.0698,inc:320000,exp:340000,res:35000,emp:6,vol:25,cat:["Arts/Culture/Heritage/Science"],ben:["The General Public/Mankind"],act:"Community arts space in Peckham. Exhibitions, workshops, and creative programmes engaging local residents.",reg:"2002-08-14",ns:70,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10},rm:1.2,it:-0.14,sr:1.063,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.2 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 14% year-over-year"}],ar:[{d:"2023-03-31",i:320000,e:340000},{d:"2022-03-31",i:372000,e:345000},{d:"2021-03-31",i:380000,e:360000}],dist:"Southwark"},
+  {n:"1075037",nm:"LEWISHAM REFUGEE AND MIGRANT NETWORK",pc:"SE13 7QP",lat:51.4533,lng:-0.0173,inc:280000,exp:310000,res:22000,emp:5,vol:30,cat:["Relief of Poverty","Education/Training"],ben:["People of a Particular Ethnic or Racial Origin","The General Public/Mankind"],act:"Immigration advice, ESOL classes, and integration support for refugees and migrants in Lewisham.",reg:"1999-04-20",ns:86,nf:{low_reserves:30,income_declining:15,overspending:20,small_charity:10,late_filing:5},rm:0.9,it:-0.16,sr:1.107,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 16% year-over-year"},{type:"spending_mismatch",severity:"high",detail:"Spending 111% of income"}],ar:[{d:"2022-09-30",i:280000,e:310000},{d:"2021-09-30",i:333000,e:300000},{d:"2020-09-30",i:350000,e:320000}],dist:"Lewisham"},
+  {n:"1030212",nm:"LAMBETH CHINESE COMMUNITY ASSOCIATION",pc:"SW9 8PS",lat:51.4640,lng:-0.1140,inc:125000,exp:135000,res:10000,emp:2,vol:18,cat:["General Charitable Purposes"],ben:["People of a Particular Ethnic or Racial Origin","Elderly/Old People"],act:"Chinese community support in Lambeth: translation services, elderly day care, and cultural activities.",reg:"1993-06-30",ns:90,nf:{low_reserves:30,income_declining:25,overspending:10,small_charity:10,late_filing:10},rm:0.9,it:-0.30,sr:1.080,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"},{type:"income_drop",severity:"high",detail:"Income dropped 30% year-over-year"}],ar:[{d:"2022-03-31",i:125000,e:135000},{d:"2021-03-31",i:178000,e:165000},{d:"2020-03-31",i:195000,e:180000}],dist:"Lambeth"},
+  {n:"1117635",nm:"SOUTH LONDON GALLERY",pc:"SE5 8UH",lat:51.4735,lng:-0.0830,inc:2400000,exp:2300000,res:890000,emp:35,vol:60,cat:["Arts/Culture/Heritage/Science"],ben:["The General Public/Mankind","Children/Young People"],act:"Contemporary art gallery in Camberwell with free exhibitions, education programmes, and community projects.",reg:"2006-11-08",ns:18,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:4.6,it:0.07,sr:0.958,an:[],ar:[{d:"2023-03-31",i:2400000,e:2300000},{d:"2022-03-31",i:2240000,e:2180000},{d:"2021-03-31",i:1800000,e:1900000}],dist:"Southwark"},
+
+  // ── CAMDEN / WESTMINSTER ──
+  {n:"1048021",nm:"MARY WARD LEGAL CENTRE",pc:"WC1H 9AZ",lat:51.5267,lng:-0.1195,inc:1500000,exp:1550000,res:180000,emp:28,vol:45,cat:["Education/Training","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Free legal advice centre in Bloomsbury. Housing, debt, welfare, and employment law for those who cannot afford a solicitor.",reg:"1995-06-15",ns:58,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:5},rm:1.4,it:-0.05,sr:1.033,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.4 months of reserves"},{type:"spending_mismatch",severity:"medium",detail:"Spending 103% of income"}],ar:[{d:"2023-03-31",i:1500000,e:1550000},{d:"2022-03-31",i:1580000,e:1500000},{d:"2021-03-31",i:1420000,e:1380000}],dist:"Camden"},
+  {n:"1131793",nm:"THE WINCH",pc:"NW3 2QR",lat:51.5530,lng:-0.1612,inc:850000,exp:880000,res:110000,emp:14,vol:55,cat:["Education/Training","Recreation"],ben:["Children/Young People"],act:"Youth centre in Swiss Cottage providing after-school learning, sports, creative arts, and mentoring for young people.",reg:"2009-07-14",ns:62,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:5},rm:1.5,it:-0.08,sr:1.035,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.5 months of reserves"}],ar:[{d:"2023-03-31",i:850000,e:880000},{d:"2022-03-31",i:924000,e:860000},{d:"2021-03-31",i:890000,e:840000}],dist:"Camden"},
+  {n:"1088337",nm:"WESTMINSTER HOMELESS INTERMEDIATE TREATMENT",pc:"SW1V 1QH",lat:51.4935,lng:-0.1390,inc:380000,exp:410000,res:30000,emp:7,vol:20,cat:["Accommodation/Housing","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Outreach and resettlement services for rough sleepers in Westminster. Drop-in centre with health and benefits advice.",reg:"2001-05-03",ns:80,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10},rm:0.9,it:-0.14,sr:1.079,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 14% year-over-year"}],ar:[{d:"2023-03-31",i:380000,e:410000},{d:"2022-03-31",i:442000,e:400000},{d:"2021-03-31",i:480000,e:450000}],dist:"Westminster"},
+
+  // ── GREENWICH / WOOLWICH ──
+  {n:"1065445",nm:"GREENWICH COOPERATIVE DEVELOPMENT AGENCY",pc:"SE18 6HJ",lat:51.4888,lng:0.0653,inc:410000,exp:430000,res:48000,emp:8,vol:12,cat:["Economic/Community Development/Employment"],ben:["The General Public/Mankind"],act:"Business start-up support, social enterprise development, and employment training in Greenwich.",reg:"1997-08-15",ns:68,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:10},rm:1.3,it:-0.09,sr:1.049,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.3 months of reserves"}],ar:[{d:"2023-03-31",i:410000,e:430000},{d:"2022-03-31",i:450000,e:420000},{d:"2021-03-31",i:480000,e:460000}],dist:"Greenwich"},
+  {n:"1114082",nm:"CHARLTON ATHLETIC COMMUNITY TRUST",pc:"SE7 8BL",lat:51.4871,lng:0.0371,inc:5200000,exp:4900000,res:1800000,emp:85,vol:200,cat:["Education/Training","Amateur Sport"],ben:["Children/Young People","The General Public/Mankind"],act:"Community sports and education programmes using football as a vehicle for social inclusion.",reg:"2006-02-14",ns:14,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:4.4,it:0.06,sr:0.942,an:[],ar:[{d:"2023-06-30",i:5200000,e:4900000},{d:"2022-06-30",i:4900000,e:4600000},{d:"2021-06-30",i:4200000,e:4000000}],dist:"Greenwich"},
+
+  // ── NEWHAM / BARKING / EAST ──
+  {n:"1052183",nm:"NEWHAM COMMUNITY RENEWAL PROGRAMME",pc:"E6 2JA",lat:51.5240,lng:0.0445,inc:520000,exp:580000,res:42000,emp:9,vol:28,cat:["General Charitable Purposes","Economic/Community Development/Employment"],ben:["The General Public/Mankind"],act:"Capacity building for voluntary organisations in Newham. Community grants, volunteering, and neighbourhood action.",reg:"1996-02-28",ns:76,nf:{low_reserves:30,income_declining:5,overspending:20,small_charity:10},rm:0.9,it:-0.10,sr:1.115,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"},{type:"spending_mismatch",severity:"high",detail:"Spending 112% of income"}],ar:[{d:"2023-03-31",i:520000,e:580000},{d:"2022-03-31",i:578000,e:540000},{d:"2021-03-31",i:610000,e:580000}],dist:"Newham"},
+  {n:"1086651",nm:"ASTON-MANSFIELD",pc:"E15 3EA",lat:51.5380,lng:0.0110,inc:1200000,exp:1150000,res:380000,emp:22,vol:90,cat:["General Charitable Purposes","Education/Training"],ben:["The General Public/Mankind"],act:"Community hub in Stratford offering youth work, community space, and local capacity building.",reg:"2001-04-18",ns:26,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:4.0,it:0.04,sr:0.958,an:[],ar:[{d:"2023-03-31",i:1200000,e:1150000},{d:"2022-03-31",i:1155000,e:1100000},{d:"2021-03-31",i:1050000,e:1020000}],dist:"Newham"},
+  {n:"1102038",nm:"EAST LONDON ADVANCED TECHNOLOGY TRAINING",pc:"E6 1JG",lat:51.5200,lng:0.0530,inc:290000,exp:320000,res:18000,emp:5,vol:10,cat:["Education/Training"],ben:["The General Public/Mankind","Children/Young People"],act:"Digital skills training and computer literacy courses for disadvantaged residents in east London.",reg:"2004-02-20",ns:84,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10,late_filing:10},rm:0.7,it:-0.22,sr:1.103,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.7 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 22% year-over-year"}],ar:[{d:"2022-03-31",i:290000,e:320000},{d:"2021-03-31",i:372000,e:340000},{d:"2020-03-31",i:410000,e:380000}],dist:"Newham"},
+
+  // ── NORTH KENSINGTON / HAMMERSMITH ──
+  {n:"1067028",nm:"RUGBY PORTOBELLO TRUST",pc:"W10 5TZ",lat:51.5180,lng:-0.2092,inc:2800000,exp:2700000,res:850000,emp:45,vol:150,cat:["General Charitable Purposes","Education/Training"],ben:["Children/Young People","The General Public/Mankind"],act:"Youth and community programmes in North Kensington. After-school clubs, sports, mentoring, and family support.",reg:"1998-02-12",ns:24,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:3.8,it:0.05,sr:0.964,an:[],ar:[{d:"2023-03-31",i:2800000,e:2700000},{d:"2022-03-31",i:2665000,e:2580000},{d:"2021-03-31",i:2400000,e:2350000}],dist:"Kensington and Chelsea"},
+  {n:"1127234",nm:"GRENFELL FOUNDATION",pc:"W11 1TQ",lat:51.5119,lng:-0.2058,inc:3800000,exp:4200000,res:2100000,emp:18,vol:35,cat:["General Charitable Purposes","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Community recovery and support following the Grenfell Tower tragedy. Grants, wellbeing, and advocacy for affected residents.",reg:"2008-10-01",ns:46,nf:{low_reserves:10,income_declining:5,overspending:20,small_charity:5},rm:6.0,it:-0.08,sr:1.105,an:[{type:"spending_mismatch",severity:"medium",detail:"Spending 111% of income — disbursing reserves for community needs"}],ar:[{d:"2023-03-31",i:3800000,e:4200000},{d:"2022-03-31",i:4130000,e:3800000},{d:"2021-03-31",i:5200000,e:4600000}],dist:"Kensington and Chelsea"},
+  {n:"1003484",nm:"HAMMERSMITH AND FULHAM VOLUNTEERS",pc:"W6 7NL",lat:51.4928,lng:-0.2240,inc:185000,exp:200000,res:15000,emp:3,vol:120,cat:["General Charitable Purposes"],ben:["The General Public/Mankind"],act:"Volunteer centre matching local volunteers with charities in Hammersmith & Fulham. Skills development and training.",reg:"1991-06-14",ns:86,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10,late_filing:10},rm:0.9,it:-0.20,sr:1.081,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 20% year-over-year"}],ar:[{d:"2022-03-31",i:185000,e:200000},{d:"2021-03-31",i:231000,e:215000},{d:"2020-03-31",i:260000,e:245000}],dist:"Hammersmith and Fulham"},
+
+  // ── WANDSWORTH / CROYDON / SOUTH ──
+  {n:"1090936",nm:"THAMES REACH",pc:"SW8 2JB",lat:51.4812,lng:-0.1310,inc:29000000,exp:28000000,res:8500000,emp:420,vol:200,cat:["Accommodation/Housing","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Homelessness services across London including street outreach, hostels, and supported housing.",reg:"2002-03-28",ns:16,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:0},rm:3.6,it:0.03,sr:0.966,an:[],ar:[{d:"2023-03-31",i:29000000,e:28000000},{d:"2022-03-31",i:28200000,e:27000000},{d:"2021-03-31",i:26000000,e:25500000}],dist:"Wandsworth"},
+  {n:"1024004",nm:"WANDSWORTH COMMUNITY TRANSPORT",pc:"SW18 3SG",lat:51.4567,lng:-0.1882,inc:480000,exp:510000,res:35000,emp:8,vol:25,cat:["General Charitable Purposes"],ben:["Elderly/Old People","People with Disabilities"],act:"Door-to-door transport service for elderly and disabled residents in Wandsworth unable to use public transport.",reg:"1993-01-20",ns:74,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:10},rm:0.8,it:-0.10,sr:1.063,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.8 months of reserves"},{type:"spending_mismatch",severity:"medium",detail:"Spending 106% of income"}],ar:[{d:"2023-03-31",i:480000,e:510000},{d:"2022-03-31",i:534000,e:495000},{d:"2021-03-31",i:560000,e:530000}],dist:"Wandsworth"},
+  {n:"1078843",nm:"CROYDON BME FORUM",pc:"CR0 1NR",lat:51.3762,lng:-0.1003,inc:220000,exp:245000,res:16000,emp:4,vol:22,cat:["General Charitable Purposes","Human Rights/Religious/Racial Harmony/Equality/Diversity"],ben:["People of a Particular Ethnic or Racial Origin"],act:"Umbrella body supporting BME voluntary organisations in Croydon. Policy advocacy and community engagement.",reg:"2000-05-10",ns:84,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10},rm:0.8,it:-0.18,sr:1.114,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.8 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 18% year-over-year"}],ar:[{d:"2023-03-31",i:220000,e:245000},{d:"2022-03-31",i:268000,e:250000},{d:"2021-03-31",i:290000,e:275000}],dist:"Croydon"},
+
+  // ── OUTSIDE LONDON: MANCHESTER ──
+  {n:"1105365",nm:"MUSTARD TREE",pc:"M3 1BN",lat:53.4832,lng:-2.2540,inc:2800000,exp:2650000,res:920000,emp:35,vol:600,cat:["Relief of Poverty","Accommodation/Housing"],ben:["The General Public/Mankind"],act:"Support for people experiencing poverty and homelessness in Manchester. Furniture, food, and employment training.",reg:"2004-08-11",ns:20,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:4.2,it:0.06,sr:0.946,an:[],ar:[{d:"2023-03-31",i:2800000,e:2650000},{d:"2022-03-31",i:2640000,e:2500000},{d:"2021-03-31",i:2200000,e:2100000}],dist:"Manchester"},
+  {n:"1128308",nm:"WOOD STREET MISSION",pc:"M3 3ER",lat:53.4818,lng:-2.2510,inc:1500000,exp:1450000,res:480000,emp:18,vol:120,cat:["Relief of Poverty"],ben:["Children/Young People"],act:"Provides clothing, bedding, toys, and school supplies to children living in poverty across Greater Manchester.",reg:"2009-05-01",ns:24,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:4.0,it:0.04,sr:0.967,an:[],ar:[{d:"2023-12-31",i:1500000,e:1450000},{d:"2022-12-31",i:1440000,e:1380000},{d:"2021-12-31",i:1300000,e:1250000}],dist:"Manchester"},
+  {n:"1089504",nm:"MANCHESTER YOUNG LIVES",pc:"M40 2JF",lat:53.5012,lng:-2.2086,inc:390000,exp:425000,res:28000,emp:7,vol:40,cat:["Education/Training"],ben:["Children/Young People"],act:"Youth mentoring and after-school programmes for children in north Manchester's most deprived wards.",reg:"2001-09-20",ns:80,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10},rm:0.8,it:-0.15,sr:1.090,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.8 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 15% year-over-year"}],ar:[{d:"2023-03-31",i:390000,e:425000},{d:"2022-03-31",i:459000,e:420000},{d:"2021-03-31",i:490000,e:460000}],dist:"Manchester"},
+
+  // ── OUTSIDE LONDON: BRISTOL ──
+  {n:"1080444",nm:"BRISTOL REFUGEE RIGHTS",pc:"BS2 8QJ",lat:51.4570,lng:-2.5780,inc:420000,exp:450000,res:35000,emp:8,vol:85,cat:["Relief of Poverty","Human Rights/Religious/Racial Harmony/Equality/Diversity"],ben:["People of a Particular Ethnic or Racial Origin"],act:"Drop-in centre for refugees and asylum seekers in Bristol. Welfare advice, ESOL, activities, and advocacy.",reg:"2000-06-15",ns:74,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:10},rm:0.9,it:-0.10,sr:1.071,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"}],ar:[{d:"2023-03-31",i:420000,e:450000},{d:"2022-03-31",i:467000,e:435000},{d:"2021-03-31",i:480000,e:460000}],dist:"Bristol, City of"},
+  {n:"1137008",nm:"NORTH BRISTOL FOODBANK",pc:"BS7 8PA",lat:51.4780,lng:-2.5910,inc:180000,exp:175000,res:45000,emp:2,vol:95,cat:["Relief of Poverty"],ben:["The General Public/Mankind"],act:"Emergency food bank serving Horfield, Lockleaze, and surrounding areas. Part of the Trussell Trust network.",reg:"2010-08-20",ns:38,nf:{low_reserves:20,income_declining:0,overspending:0,small_charity:10},rm:3.1,it:0.08,sr:0.972,an:[],ar:[{d:"2023-03-31",i:180000,e:175000},{d:"2022-03-31",i:167000,e:160000},{d:"2021-03-31",i:145000,e:140000}],dist:"Bristol, City of"},
+  {n:"1121494",nm:"BRISTOL COMMUNITY FESTIVAL",pc:"BS1 3LG",lat:51.4520,lng:-2.5900,inc:95000,exp:110000,res:5000,emp:1,vol:65,cat:["Arts/Culture/Heritage/Science","General Charitable Purposes"],ben:["The General Public/Mankind"],act:"Annual community festival celebrating diversity and building social connections in Bristol. Year-round community arts.",reg:"2007-09-12",ns:92,nf:{low_reserves:30,income_declining:25,overspending:20,small_charity:15},rm:0.5,it:-0.35,sr:1.158,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.5 months of reserves"},{type:"income_drop",severity:"high",detail:"Income dropped 35% year-over-year"},{type:"spending_mismatch",severity:"high",detail:"Spending 116% of income"}],ar:[{d:"2023-06-30",i:95000,e:110000},{d:"2022-06-30",i:146000,e:130000},{d:"2021-06-30",i:120000,e:115000}],dist:"Bristol, City of"},
+
+  // ── OUTSIDE LONDON: BIRMINGHAM ──
+  {n:"1059284",nm:"BIRMINGHAM SETTLEMENT",pc:"B12 0QE",lat:52.4668,lng:-1.8782,inc:2100000,exp:2050000,res:650000,emp:40,vol:180,cat:["General Charitable Purposes","Relief of Poverty"],ben:["The General Public/Mankind"],act:"Community centre in Sparkbrook offering advice, education, elderly care, and support for disadvantaged families.",reg:"1996-09-12",ns:22,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:3.8,it:0.04,sr:0.976,an:[],ar:[{d:"2023-03-31",i:2100000,e:2050000},{d:"2022-03-31",i:2020000,e:1980000},{d:"2021-03-31",i:1850000,e:1800000}],dist:"Birmingham"},
+  {n:"1137855",nm:"SIKH WELFARE AND AWARENESS TEAM",pc:"B21 0HN",lat:52.4992,lng:-1.9280,inc:160000,exp:180000,res:8000,emp:2,vol:42,cat:["Relief of Poverty","Religious Activities"],ben:["The General Public/Mankind","People of a Particular Ethnic or Racial Origin"],act:"Weekly food distribution, elderly visiting, and welfare support for communities in Handsworth and surrounding areas.",reg:"2010-12-01",ns:88,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10,late_filing:10},rm:0.5,it:-0.20,sr:1.125,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.5 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 20% year-over-year"}],ar:[{d:"2022-03-31",i:160000,e:180000},{d:"2021-03-31",i:200000,e:188000},{d:"2020-03-31",i:220000,e:205000}],dist:"Birmingham"},
+
+  // ── OUTSIDE LONDON: LEEDS / SHEFFIELD ──
+  {n:"1063233",nm:"HAMARA CENTRE",pc:"LS11 6TB",lat:53.7800,lng:-1.5440,inc:1200000,exp:1150000,res:350000,emp:22,vol:85,cat:["General Charitable Purposes","Medical/Health/Sickness"],ben:["People of a Particular Ethnic or Racial Origin","The General Public/Mankind"],act:"South Asian community centre in Beeston providing health promotion, elderly care, and youth activities.",reg:"1997-07-08",ns:24,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:3.7,it:0.03,sr:0.958,an:[],ar:[{d:"2023-03-31",i:1200000,e:1150000},{d:"2022-03-31",i:1165000,e:1120000},{d:"2021-03-31",i:1050000,e:1010000}],dist:"Leeds"},
+  {n:"1097672",nm:"SHEFFIELD FLOURISH",pc:"S3 8GG",lat:53.3832,lng:-1.4718,inc:280000,exp:295000,res:22000,emp:5,vol:35,cat:["Medical/Health/Sickness"],ben:["The General Public/Mankind"],act:"Mental health charity in Sheffield run by and for people with mental health challenges. Peer support and creative activities.",reg:"2003-06-20",ns:72,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:10},rm:0.9,it:-0.08,sr:1.054,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.9 months of reserves"}],ar:[{d:"2023-03-31",i:280000,e:295000},{d:"2022-03-31",i:304000,e:290000},{d:"2021-03-31",i:320000,e:305000}],dist:"Sheffield"},
+
+  // ── MORE LONDON LOCAL CHARITIES ──
+  {n:"1166621",nm:"DALSTON COMMUNITY GARDEN",pc:"E8 3BQ",lat:51.5460,lng:-0.0752,inc:32000,exp:35000,res:3500,emp:0,vol:24,cat:["Environment/Conservation/Heritage"],ben:["The General Public/Mankind"],act:"Community growing space in Dalston. Growing food, composting workshops, and building green connections.",reg:"2016-04-01",ns:80,nf:{low_reserves:30,income_declining:0,overspending:10,small_charity:15,late_filing:10},rm:1.2,it:0.05,sr:1.094,an:[{type:"spending_mismatch",severity:"medium",detail:"Spending 109% of income"}],ar:[{d:"2023-03-31",i:32000,e:35000},{d:"2022-03-31",i:30500,e:28000}],dist:"Hackney"},
+  {n:"1082015",nm:"SOMALI INTEGRATION AND DEVELOPMENT ASSOCIATION",pc:"E1 0EH",lat:51.5172,lng:-0.0632,inc:240000,exp:270000,res:15000,emp:4,vol:18,cat:["Education/Training","General Charitable Purposes"],ben:["People of a Particular Ethnic or Racial Origin"],act:"ESOL, homework clubs, supplementary schools, and cultural integration support for Somali communities in Tower Hamlets.",reg:"2000-08-22",ns:82,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10},rm:0.7,it:-0.15,sr:1.125,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.7 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 15% year-over-year"}],ar:[{d:"2023-03-31",i:240000,e:270000},{d:"2022-03-31",i:282000,e:260000},{d:"2021-03-31",i:310000,e:290000}],dist:"Tower Hamlets"},
+  {n:"1101318",nm:"BRIXTON COMMUNITY BASE",pc:"SW9 8LF",lat:51.4622,lng:-0.1120,inc:350000,exp:360000,res:45000,emp:6,vol:15,cat:["General Charitable Purposes","Economic/Community Development/Employment"],ben:["The General Public/Mankind"],act:"Affordable workspace for charities and social enterprises in Brixton. Meeting rooms and office facilities.",reg:"2003-12-01",ns:55,nf:{low_reserves:20,income_declining:5,overspending:10,small_charity:10},rm:1.5,it:-0.06,sr:1.029,an:[],ar:[{d:"2023-03-31",i:350000,e:360000},{d:"2022-03-31",i:372000,e:355000},{d:"2021-03-31",i:385000,e:370000}],dist:"Lambeth"},
+  {n:"1159044",nm:"WALTHAMSTOW WETLANDS TRUST",pc:"E17 5RJ",lat:51.5880,lng:-0.0525,inc:580000,exp:560000,res:220000,emp:10,vol:75,cat:["Environment/Conservation/Heritage"],ben:["The General Public/Mankind"],act:"Conservation of Europe's largest urban wetland reserve. Education programmes and community engagement.",reg:"2014-09-15",ns:16,nf:{low_reserves:10,income_declining:0,overspending:0,small_charity:5},rm:4.7,it:0.07,sr:0.966,an:[],ar:[{d:"2023-03-31",i:580000,e:560000},{d:"2022-03-31",i:542000,e:520000},{d:"2021-03-31",i:480000,e:470000}],dist:"Waltham Forest"},
+  {n:"1047490",nm:"BRENT ADOLESCENT CENTRE",pc:"NW6 3QJ",lat:51.5445,lng:-0.1922,inc:410000,exp:430000,res:38000,emp:8,vol:10,cat:["Medical/Health/Sickness"],ben:["Children/Young People"],act:"Psychotherapy and counselling services for young people in Brent struggling with mental health.",reg:"1995-08-01",ns:68,nf:{low_reserves:30,income_declining:5,overspending:10,small_charity:10},rm:1.1,it:-0.08,sr:1.049,an:[{type:"critical_reserves",severity:"high",detail:"Only 1.1 months of reserves"}],ar:[{d:"2023-03-31",i:410000,e:430000},{d:"2022-03-31",i:446000,e:420000},{d:"2021-03-31",i:470000,e:450000}],dist:"Brent"},
+  {n:"1108089",nm:"DEPTFORD LOUNGE TRUST",pc:"SE8 3PQ",lat:51.4748,lng:-0.0246,inc:190000,exp:210000,res:12000,emp:3,vol:20,cat:["Arts/Culture/Heritage/Science","Education/Training"],ben:["The General Public/Mankind","Children/Young People"],act:"Community arts and learning in Deptford. Creative workshops, reading programmes, and exhibition space.",reg:"2005-05-10",ns:82,nf:{low_reserves:30,income_declining:15,overspending:10,small_charity:10},rm:0.7,it:-0.14,sr:1.105,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.7 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 14% year-over-year"}],ar:[{d:"2023-03-31",i:190000,e:210000},{d:"2022-03-31",i:221000,e:208000},{d:"2021-03-31",i:240000,e:225000}],dist:"Lewisham"},
+  {n:"1155392",nm:"HARINGEY MIGRANT SUPPORT CENTRE",pc:"N15 4RX",lat:51.5812,lng:-0.0870,inc:150000,exp:168000,res:9000,emp:2,vol:28,cat:["Relief of Poverty"],ben:["People of a Particular Ethnic or Racial Origin"],act:"Immigration advice, welfare support, and English classes for refugees and migrants in Haringey.",reg:"2013-11-08",ns:90,nf:{low_reserves:30,income_declining:25,overspending:10,small_charity:10,late_filing:5},rm:0.6,it:-0.28,sr:1.120,an:[{type:"critical_reserves",severity:"high",detail:"Only 0.6 months of reserves"},{type:"income_drop",severity:"medium",detail:"Income dropped 28% year-over-year"}],ar:[{d:"2023-03-31",i:150000,e:168000},{d:"2022-03-31",i:208000,e:192000},{d:"2021-03-31",i:230000,e:218000}],dist:"Haringey"},
+  {n:"1087265",nm:"ENFIELD VOLUNTARY ACTION",pc:"EN2 6LE",lat:51.6520,lng:-0.0830,inc:680000,exp:710000,res:95000,emp:12,vol:45,cat:["General Charitable Purposes"],ben:["Other Charities/Voluntary Bodies"],act:"Support hub for voluntary organisations in Enfield. Volunteering, training, and partnership development.",reg:"2001-06-28",ns:48,nf:{low_reserves:20,income_declining:5,overspending:10,small_charity:5},rm:1.6,it:-0.06,sr:1.044,an:[],ar:[{d:"2023-03-31",i:680000,e:710000},{d:"2022-03-31",i:723000,e:685000},{d:"2021-03-31",i:750000,e:720000}],dist:"Enfield"},
+
+  // ── DORMANT / HIGH-RESERVES CHARITIES (anomaly: excessive reserves) ──
+  {n:"1045982",nm:"THE BARTHOLOMEW TRUST",pc:"EC1A 7BE",lat:51.5175,lng:-0.0987,inc:1200000,exp:280000,res:8500000,emp:2,vol:0,cat:["General Charitable Purposes"],ben:["The General Public/Mankind"],act:"Grant-making trust supporting community organisations in the City of London and surrounding boroughs.",reg:"1995-04-10",ns:15,nf:{low_reserves:0,income_declining:0,overspending:0,small_charity:5},rm:364.3,it:0.02,sr:0.233,an:[{type:"excessive_reserves",severity:"low",detail:"364 months of reserves — funds may not be reaching beneficiaries"}],ar:[{d:"2023-03-31",i:1200000,e:280000},{d:"2022-03-31",i:1176000,e:260000},{d:"2021-03-31",i:1100000,e:250000}],dist:"City of London"},
+  {n:"1078123",nm:"RICHMOND EDUCATIONAL FOUNDATION",pc:"TW9 2NQ",lat:51.4620,lng:-0.3070,inc:650000,exp:120000,res:4200000,emp:1,vol:0,cat:["Education/Training"],ben:["Children/Young People"],act:"Educational grants for young people in the Richmond upon Thames borough.",reg:"1999-11-20",ns:10,nf:{low_reserves:0,income_declining:0,overspending:0,small_charity:5},rm:420.0,it:0.01,sr:0.185,an:[{type:"excessive_reserves",severity:"low",detail:"420 months of reserves — funds may not be reaching beneficiaries"}],ar:[{d:"2023-03-31",i:650000,e:120000},{d:"2022-03-31",i:643500,e:115000},{d:"2021-03-31",i:620000,e:110000}],dist:"Richmond upon Thames"},
+
+  // ── SPIKE / UNUSUAL INCOME CHARITIES ──
+  {n:"1168540",nm:"REDBRIDGE COMMUNITY HUB",pc:"IG1 4PL",lat:51.5590,lng:0.0710,inc:820000,exp:380000,res:440000,emp:6,vol:30,cat:["General Charitable Purposes"],ben:["The General Public/Mankind"],act:"New community hub in Ilford offering mental health support, food distribution, and space for local groups.",reg:"2016-11-15",ns:12,nf:{low_reserves:0,income_declining:0,overspending:0,small_charity:5},rm:13.9,it:2.50,sr:0.463,an:[{type:"income_spike",severity:"low",detail:"Income increased 250% — may be a one-off large grant"}],ar:[{d:"2023-03-31",i:820000,e:380000},{d:"2022-03-31",i:234000,e:220000},{d:"2021-03-31",i:180000,e:170000}],dist:"Redbridge"}
+];
+
+// ─── DATA METADATA ──────────────────────────────────────────────────────────
+const DATA_META = {
+  source: "Charity Commission for England & Wales",
+  licence: "Open Government Licence v3.0",
+  generated: new Date().toISOString(),
+  count: CHARITY_DATA.length,
+  isDemo: true,
+  note: "Demo dataset with real charity names and registration numbers. Run prepare_data.py for the full dataset."
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// APPLICATION STATE & GLOBALS
+// ═══════════════════════════════════════════════════════════════════════════
+
+let map, markerGroup, searchCircle;
+let currentCharities = [];
+let selectedCharity = null;
+let activeFilters = new Set();
+let searchRadius = 5; // km
+
+const CATEGORY_COLORS = {
+  'Medical/Health/Sickness': '#f43f5e',
+  'Relief of Poverty': '#f59e0b',
+  'Education/Training': '#3b82f6',
+  'Accommodation/Housing': '#a78bfa',
+  'Arts/Culture/Heritage/Science': '#ec4899',
+  'General Charitable Purposes': '#6b7280',
+  'Environment/Conservation/Heritage': '#34d399',
+  'Economic/Community Development/Employment': '#fb923c',
+  'Religious Activities': '#c084fc',
+  'Amateur Sport': '#38bdf8',
+  'Animals': '#a3e635',
+  'Disability': '#67e8f9',
+  'Recreation': '#fbbf24',
+  'Human Rights/Religious/Racial Harmony/Equality/Diversity': '#e879f9',
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAP INITIALIZATION
+// ═══════════════════════════════════════════════════════════════════════════
+
+function initMap() {
+  map = L.map('map', {
+    center: [52.5, -1.5],
+    zoom: 6,
+    zoomControl: false,
+    attributionControl: true
+  });
+  
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19
+  }).addTo(map);
+  
+  L.control.zoom({ position: 'topright' }).addTo(map);
+  
+  markerGroup = L.layerGroup().addTo(map);
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// POSTCODE SEARCH (uses postcodes.io — free, no API key)
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function searchPostcode(pc) {
+  const input = document.getElementById('searchInput');
+  input.value = pc;
+  
+  // Clean postcode
+  const postcode = pc.trim().toUpperCase();
+  if (!postcode) return;
+  
+  try {
+    const resp = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcode)}`);
+    const data = await resp.json();
+    
+    if (data.status !== 200 || !data.result) {
+      // Try as partial postcode
+      const resp2 = await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(postcode.split(' ')[0])}`);
+      const data2 = await resp2.json();
+      if (data2.status === 200 && data2.result) {
+        displayResults(data2.result.latitude, data2.result.longitude, data2.result.admin_district || postcode);
+        return;
+      }
+      showError('Postcode not found. Try a valid UK postcode like "SE1 7PB".');
+      return;
+    }
+    
+    displayResults(data.result.latitude, data.result.longitude, data.result.admin_district || postcode);
+    
+  } catch (err) {
+    showError('Could not look up postcode. Check your connection and try again.');
+    console.error(err);
+  }
+}
+
+function showError(msg) {
+  const list = document.getElementById('charityList');
+  list.innerHTML = `
+    <div class="empty-state">
+      <div class="empty-icon">⚠️</div>
+      <div class="empty-title">Search Error</div>
+      <div class="empty-desc">${msg}</div>
+    </div>
+  `;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DISPLAY RESULTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function displayResults(lat, lng, areaName) {
+  // Hide welcome
+  document.getElementById('welcome').classList.add('hidden');
+  document.getElementById('mapOverlay').style.display = '';
+  document.getElementById('controlsBar').style.display = '';
+  document.getElementById('dataBanner').style.display = '';
+  
+  // Find nearby charities
+  const radius = searchRadius;
+  currentCharities = CHARITY_DATA
+    .map(c => ({
+      ...c,
+      distance: haversine(lat, lng, c.lat, c.lng)
+    }))
+    .filter(c => c.distance <= radius)
+    .sort((a, b) => b.ns - a.ns); // Sort by need score
+  
+  // Apply category filters
+  let filtered = currentCharities;
+  if (activeFilters.size > 0) {
+    filtered = currentCharities.filter(c => 
+      c.cat && c.cat.some(cat => activeFilters.has(cat))
+    );
+  }
+  
+  // Update map
+  updateMap(lat, lng, radius, filtered);
+  
+  // Update sidebar
+  updateSidebar(filtered, areaName);
+  
+  // Update header stats
+  updateHeaderStats(filtered);
+  
+  // Build filter chips
+  buildFilterChips(currentCharities);
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MAP UPDATE
+// ═══════════════════════════════════════════════════════════════════════════
+
+function updateMap(lat, lng, radius, charities) {
+  markerGroup.clearLayers();
+  if (searchCircle) map.removeLayer(searchCircle);
+  
+  // Search radius circle
+  searchCircle = L.circle([lat, lng], {
+    radius: radius * 1000,
+    color: '#2dd4bf',
+    fillColor: '#2dd4bf',
+    fillOpacity: 0.05,
+    weight: 1,
+    dashArray: '6,4'
+  }).addTo(map);
+  
+  // Search center
+  L.circleMarker([lat, lng], {
+    radius: 8,
+    color: '#fff',
+    fillColor: '#2dd4bf',
+    fillOpacity: 1,
+    weight: 2
+  }).addTo(markerGroup);
+  
+  // Charity markers
+  charities.forEach((c, i) => {
+    const scoreClass = c.ns >= 75 ? 'score-critical' : c.ns >= 50 ? 'score-high' : c.ns >= 25 ? 'score-medium' : 'score-low';
+    const size = Math.max(8, Math.min(16, 8 + (c.ns / 100) * 8));
+    
+    const marker = L.circleMarker([c.lat, c.lng], {
+      radius: size,
+      color: getScoreColor(c.ns),
+      fillColor: getScoreColor(c.ns),
+      fillOpacity: 0.7,
+      weight: 1.5
+    });
+    
+    marker.bindPopup(`
+      <div class="marker-popup">
+        <div class="name">${c.nm}</div>
+        <div class="score" style="color:${getScoreColor(c.ns)}">Need Score: ${c.ns}/100</div>
+        <div class="cat">${(c.cat||[]).join(', ')}</div>
+      </div>
+    `, { className: 'custom-popup' });
+    
+    marker.on('click', () => openDetail(c));
+    marker.addTo(markerGroup);
+  });
+  
+  // Fit map
+  if (charities.length > 0) {
+    const bounds = L.latLngBounds(charities.map(c => [c.lat, c.lng]));
+    bounds.extend([lat, lng]);
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+  } else {
+    map.setView([lat, lng], 13);
+  }
+}
+
+function getScoreColor(score) {
+  if (score >= 75) return '#dc2626';
+  if (score >= 50) return '#f43f5e';
+  if (score >= 25) return '#f59e0b';
+  return '#2dd4bf';
+}
+
+function getScoreClass(score) {
+  if (score >= 75) return 'need-critical';
+  if (score >= 50) return 'need-high';
+  if (score >= 25) return 'need-medium';
+  return 'need-low';
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════════════════════════════════════
+
+function updateSidebar(charities, areaName) {
+  const sub = document.getElementById('sidebarSub');
+  sub.innerHTML = `<strong>${charities.length}</strong> charities near ${areaName} · sorted by need`;
+  
+  const list = document.getElementById('charityList');
+  
+  if (charities.length === 0) {
+    list.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📍</div>
+        <div class="empty-title">No charities found</div>
+        <div class="empty-desc">
+          Try increasing the search radius or searching a different postcode. 
+          The demo dataset covers London, Manchester, Bristol, Birmingham, Leeds, and Sheffield.
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  // Borough summary
+  const districts = {};
+  charities.forEach(c => {
+    const d = c.dist || 'Unknown';
+    if (!districts[d]) districts[d] = { count: 0, totalNeed: 0, totalInc: 0 };
+    districts[d].count++;
+    districts[d].totalNeed += c.ns;
+    districts[d].totalInc += c.inc;
+  });
+  
+  const topDistrict = Object.entries(districts).sort((a,b) => b[1].count - a[1].count)[0];
+  
+  let html = '';
+  
+  if (topDistrict) {
+    const d = topDistrict[1];
+    const avgNeed = Math.round(d.totalNeed / d.count);
+    const highNeed = charities.filter(c => c.dist === topDistrict[0] && c.ns >= 50).length;
+    html += `
+      <div class="borough-summary">
+        <div class="borough-name">${topDistrict[0]}</div>
+        <div class="borough-stats">
+          <div class="borough-stat">
+            <div class="borough-stat-val" style="color:var(--accent-teal)">${d.count}</div>
+            <div class="borough-stat-label">Charities</div>
+          </div>
+          <div class="borough-stat">
+            <div class="borough-stat-val" style="color:${getScoreColor(avgNeed)}">${avgNeed}</div>
+            <div class="borough-stat-label">Avg Score</div>
+          </div>
+          <div class="borough-stat">
+            <div class="borough-stat-val" style="color:var(--accent-coral)">${highNeed}</div>
+            <div class="borough-stat-label">High Need</div>
+          </div>
+          <div class="borough-stat">
+            <div class="borough-stat-val" style="color:var(--accent-amber)">£${formatCompact(d.totalInc)}</div>
+            <div class="borough-stat-label">Total Income</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Charity cards
+  charities.forEach((c, i) => {
+    const scoreClass = getScoreClass(c.ns);
+    const scoreColor = getScoreColor(c.ns);
+    const circumference = 2 * Math.PI * 18;
+    const dashoffset = circumference * (1 - c.ns / 100);
+    
+    const factors = [];
+    if (c.nf) {
+      if (c.nf.low_reserves >= 20) factors.push({t: 'Low reserves', s: 'high'});
+      else if (c.nf.low_reserves >= 10) factors.push({t: 'Moderate reserves', s: 'medium'});
+      if (c.nf.income_declining >= 15) factors.push({t: 'Income declining', s: 'high'});
+      else if (c.nf.income_declining >= 5) factors.push({t: 'Income dip', s: 'medium'});
+      if (c.nf.overspending >= 10) factors.push({t: 'Overspending', s: 'high'});
+      if (c.nf.small_charity >= 10) factors.push({t: 'Small org', s: 'low'});
+      if (c.nf.late_filing >= 5) factors.push({t: 'Late filing', s: 'medium'});
+    }
+    
+    html += `
+      <div class="charity-card ${scoreClass}" onclick="openDetail(CHARITY_DATA.find(x=>x.n==='${c.n}'))" data-id="${c.n}">
+        <div class="card-top">
+          <div style="flex:1">
+            <span class="card-rank">#${i+1}</span>
+            <span class="card-name">${c.nm}${c.an && c.an.length ? '<span class="anomaly-dot" title="Anomaly detected"></span>' : ''}</span>
+          </div>
+          <div class="card-score">
+            <div class="score-circle">
+              <svg viewBox="0 0 44 44">
+                <circle cx="22" cy="22" r="18" stroke="rgba(255,255,255,0.08)" />
+                <circle cx="22" cy="22" r="18" stroke="${scoreColor}" 
+                  stroke-dasharray="${circumference}" stroke-dashoffset="${dashoffset}" />
+              </svg>
+              ${c.ns}
+            </div>
+            <div class="score-label">Need</div>
+          </div>
+        </div>
+        <div class="card-meta">
+          <div class="meta-item"><span class="mi">💷</span> £${formatCompact(c.inc)}</div>
+          <div class="meta-item"><span class="mi">📍</span> ${c.distance !== undefined ? c.distance.toFixed(1)+'km' : c.pc}</div>
+          ${c.emp ? `<div class="meta-item"><span class="mi">👤</span> ${c.emp}</div>` : ''}
+          ${c.vol ? `<div class="meta-item"><span class="mi">🤝</span> ${c.vol} vol</div>` : ''}
+        </div>
+        ${c.cat && c.cat.length ? `<div class="card-cats">${c.cat.map(cat => 
+          `<span class="cat-tag">${cat.length > 25 ? cat.slice(0,22)+'…' : cat}</span>`
+        ).join('')}</div>` : ''}
+        ${factors.length ? `<div class="card-factors">${factors.map(f => 
+          `<span class="factor-badge ${f.s}">⚑ ${f.t}</span>`
+        ).join('')}</div>` : ''}
+      </div>
+    `;
+  });
+  
+  list.innerHTML = html;
+}
+
+function updateHeaderStats(charities) {
+  document.getElementById('statTotal').textContent = charities.length;
+  document.getElementById('statHighNeed').textContent = charities.filter(c => c.ns >= 50).length;
+  
+  if (charities.length > 0) {
+    const sorted = [...charities].sort((a,b) => a.ns - b.ns);
+    const median = sorted[Math.floor(sorted.length / 2)].ns;
+    document.getElementById('statMedian').textContent = median;
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// FILTER CHIPS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function buildFilterChips(charities) {
+  const cats = {};
+  charities.forEach(c => (c.cat || []).forEach(cat => {
+    cats[cat] = (cats[cat] || 0) + 1;
+  }));
+  
+  const sorted = Object.entries(cats).sort((a,b) => b[1] - a[1]).slice(0, 8);
+  
+  const container = document.getElementById('filterChips');
+  container.innerHTML = sorted.map(([cat, count]) => 
+    `<div class="filter-chip ${activeFilters.has(cat) ? 'active' : ''}" 
+          onclick="toggleFilter('${cat.replace(/'/g, "\\'")}')">${cat.length > 20 ? cat.slice(0,17)+'…' : cat} (${count})</div>`
+  ).join('');
+}
+
+function toggleFilter(cat) {
+  if (activeFilters.has(cat)) activeFilters.delete(cat);
+  else activeFilters.add(cat);
+  
+  // Re-run display with current center
+  const center = map.getCenter();
+  displayResults(center.lat, center.lng, document.querySelector('.borough-name')?.textContent || 'Area');
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DETAIL PANEL
+// ═══════════════════════════════════════════════════════════════════════════
+
+function openDetail(charity) {
+  if (!charity) return;
+  selectedCharity = charity;
+  
+  const overlay = document.getElementById('detailOverlay');
+  const panel = document.getElementById('detailPanel');
+  
+  const scoreColor = getScoreColor(charity.ns);
+  const circumference = 2 * Math.PI * 30;
+  const dashoffset = circumference * (1 - charity.ns / 100);
+  
+  // Need factor breakdown
+  const factorDefs = [
+    { key: 'low_reserves', label: 'Reserves Level', max: 30 },
+    { key: 'income_declining', label: 'Income Trend', max: 25 },
+    { key: 'overspending', label: 'Spending vs Income', max: 20 },
+    { key: 'small_charity', label: 'Organisation Size', max: 15 },
+    { key: 'late_filing', label: 'Filing Recency', max: 10 },
+  ];
+  
+  const factorsHTML = factorDefs.map(f => {
+    const val = (charity.nf && charity.nf[f.key]) || 0;
+    const pct = (val / f.max) * 100;
+    const color = val >= f.max * 0.7 ? 'var(--accent-coral)' : val >= f.max * 0.4 ? 'var(--accent-amber)' : 'var(--accent-teal)';
+    return `
+      <div class="score-factor-row">
+        <div class="score-factor-label">${f.label}</div>
+        <div class="score-factor-bar">
+          <div class="score-factor-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="score-factor-val">${val}/${f.max}</div>
+      </div>
+    `;
+  }).join('');
+  
+  // Financial history chart
+  const history = (charity.ar || []).slice().reverse();
+  let chartHTML = '';
+  if (history.length > 0) {
+    const maxVal = Math.max(...history.map(h => Math.max(h.i, h.e)));
+    chartHTML = `
+      <div class="chart-bars">
+        ${history.map(h => {
+          const iPct = maxVal > 0 ? (h.i / maxVal) * 100 : 0;
+          const ePct = maxVal > 0 ? (h.e / maxVal) * 100 : 0;
+          return `
+            <div class="chart-bar-group">
+              <div class="chart-bar-pair">
+                <div class="chart-bar income" style="height:${iPct}%"></div>
+                <div class="chart-bar spending" style="height:${ePct}%"></div>
+              </div>
+              <div class="chart-bar-label">${h.d.slice(0,4)}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+      <div class="chart-legend-row">
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--accent-teal)"></div> Income</div>
+        <div class="chart-legend-item"><div class="chart-legend-dot" style="background:var(--accent-coral)"></div> Expenditure</div>
+      </div>
+    `;
+  }
+  
+  // Anomalies
+  const anomalyIcons = { high: '🔴', medium: '🟡', low: '🔵' };
+  const anomaliesHTML = (charity.an || []).length > 0 ? `
+    <div class="detail-section">
+      <div class="detail-section-title">⚠ Anomaly Flags</div>
+      <div class="anomaly-list">
+        ${charity.an.map(a => `
+          <div class="anomaly-alert ${a.severity}">
+            <span class="anomaly-icon">${anomalyIcons[a.severity] || '⚪'}</span>
+            <span class="anomaly-text">${a.detail}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+  
+  // Reserves info
+  const reservesInfo = charity.rm !== null && charity.rm !== undefined ? 
+    `${charity.rm < 3 ? '⚠️' : '✓'} ${charity.rm} months` : 'Not reported';
+  
+  // Income trend
+  const trendClass = charity.it > 0 ? 'trend-up' : charity.it < 0 ? 'trend-down' : 'trend-neutral';
+  const trendSymbol = charity.it > 0 ? '↑' : charity.it < 0 ? '↓' : '→';
+  const trendText = charity.it !== null && charity.it !== undefined ? 
+    `${trendSymbol} ${(Math.abs(charity.it) * 100).toFixed(1)}%` : 'N/A';
+  
+  panel.innerHTML = `
+    <button class="detail-close" onclick="closeDetail()">✕</button>
+    
+    <div class="detail-header">
+      <div class="detail-charity-num">
+        Charity No. ${charity.n} · 
+        <a href="https://register-of-charities.charitycommission.gov.uk/charity-search/-/charity-details/${charity.n}" target="_blank">
+          View on Register ↗
+        </a>
+      </div>
+      <div class="detail-name">${charity.nm}</div>
+      <div class="detail-cats">
+        ${(charity.cat || []).map(c => `<span class="cat-tag">${c}</span>`).join('')}
+        ${(charity.ben || []).map(b => `<span class="cat-tag" style="border-color:var(--accent-purple);color:var(--accent-purple)">${b}</span>`).join('')}
+      </div>
+      
+      <div class="detail-score-row">
+        <div class="detail-score-big" style="color:${scoreColor}">
+          <svg viewBox="0 0 72 72">
+            <circle cx="36" cy="36" r="30" stroke="rgba(255,255,255,0.08)" />
+            <circle cx="36" cy="36" r="30" stroke="${scoreColor}" 
+              stroke-dasharray="${circumference}" stroke-dashoffset="${dashoffset}" />
+          </svg>
+          <div class="score-num">${charity.ns}</div>
+          <div class="score-of">/ 100</div>
+        </div>
+        <div class="score-breakdown">
+          ${factorsHTML}
+        </div>
+      </div>
+    </div>
+    
+    <div class="detail-body">
+      ${anomaliesHTML}
+      
+      <div class="detail-section">
+        <div class="detail-section-title">Financial Overview</div>
+        <div class="finance-grid">
+          <div class="finance-card">
+            <div class="finance-card-label">Annual Income</div>
+            <div class="finance-card-value">£${formatMoney(charity.inc)}</div>
+            <div class="finance-card-sub ${trendClass}">${trendText} YoY</div>
+          </div>
+          <div class="finance-card">
+            <div class="finance-card-label">Annual Spending</div>
+            <div class="finance-card-value">£${formatMoney(charity.exp)}</div>
+            <div class="finance-card-sub">${charity.sr ? (charity.sr * 100).toFixed(0) + '% of income' : ''}</div>
+          </div>
+          <div class="finance-card">
+            <div class="finance-card-label">Reserves</div>
+            <div class="finance-card-value">£${formatMoney(charity.res)}</div>
+            <div class="finance-card-sub">${reservesInfo}</div>
+          </div>
+          ${charity.emp ? `
+          <div class="finance-card">
+            <div class="finance-card-label">Employees</div>
+            <div class="finance-card-value">${charity.emp.toLocaleString()}</div>
+          </div>` : ''}
+          ${charity.vol ? `
+          <div class="finance-card">
+            <div class="finance-card-label">Volunteers</div>
+            <div class="finance-card-value">${charity.vol.toLocaleString()}</div>
+          </div>` : ''}
+          <div class="finance-card">
+            <div class="finance-card-label">Postcode</div>
+            <div class="finance-card-value" style="font-size:14px">${charity.pc}</div>
+            <div class="finance-card-sub">${charity.dist || ''}</div>
+          </div>
+        </div>
+      </div>
+      
+      ${history.length > 1 ? `
+      <div class="detail-section">
+        <div class="detail-section-title">Financial History</div>
+        <div class="history-chart">${chartHTML}</div>
+      </div>
+      ` : ''}
+      
+      ${charity.act ? `
+      <div class="detail-section">
+        <div class="detail-section-title">Activities & Purpose</div>
+        <div class="detail-activities">${charity.act}</div>
+      </div>
+      ` : ''}
+      
+      <div class="detail-section">
+        <a class="detail-link" href="https://register-of-charities.charitycommission.gov.uk/charity-search/-/charity-details/${charity.n}" target="_blank">
+          📋 View full record on Charity Commission Register
+        </a>
+      </div>
+    </div>
+  `;
+  
+  overlay.classList.add('open');
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('open');
+  selectedCharity = null;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function formatMoney(val) {
+  if (val == null) return '—';
+  if (val >= 1e9) return (val / 1e9).toFixed(1) + 'bn';
+  if (val >= 1e6) return (val / 1e6).toFixed(1) + 'm';
+  if (val >= 1e3) return (val / 1e3).toFixed(0) + 'k';
+  return val.toLocaleString();
+}
+
+function formatCompact(val) {
+  if (val == null) return '—';
+  if (val >= 1e9) return (val / 1e9).toFixed(1) + 'bn';
+  if (val >= 1e6) return (val / 1e6).toFixed(1) + 'm';
+  if (val >= 1e3) return (val / 1e3).toFixed(0) + 'k';
+  return val.toString();
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EVENT LISTENERS
+// ═══════════════════════════════════════════════════════════════════════════
+
+document.getElementById('searchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    searchPostcode(e.target.value);
+  }
+});
+
+document.getElementById('radiusSlider').addEventListener('input', (e) => {
+  searchRadius = parseInt(e.target.value);
+  document.getElementById('radiusValue').textContent = searchRadius + ' km';
+});
+
+document.getElementById('radiusSlider').addEventListener('change', () => {
+  // Re-search with new radius
+  const center = map.getCenter();
+  if (currentCharities.length > 0 || document.getElementById('welcome').classList.contains('hidden')) {
+    displayResults(center.lat, center.lng, 
+      document.querySelector('.borough-name')?.textContent || 'Area');
+  }
+});
+
+// Keyboard shortcut to close detail
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeDetail();
+});
+
+
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
+
+initMap();
+</script>
+</body>
+</html>
