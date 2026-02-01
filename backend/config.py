@@ -107,75 +107,55 @@ CLASSIFICATION_HOW = {
 }
 
 
-# ─── Need Score Weights ─────────────────────────────────────────────────────
-# V2 Scoring: Uses continuous interpolation + percentile normalization.
-#
-# Each factor defines a curve rather than step thresholds.
-# The raw score is computed first, then normalized to percentiles
-# so the final 0-100 score is always well-distributed.
-#
-# "range" defines the (low, high) input values that map to (0, max_points).
-# Values outside the range are clamped.
+# ─── Viability Filters ──────────────────────────────────────────────────────
+# Charities below these thresholds are excluded from results entirely.
+DEFAULT_MIN_SPENDING = 5_000  # £3k minimum annual spending to be included
+
 
 SCORE_WEIGHTS = {
     "low_reserves": {
-        "max": 25,
-        # Only triggers below 3 months (CC recommends 3-6 as healthy).
-        # <0.5 months = full points, 3+ months = 0 points.
-        "range": (0.5, 3.0),      # reserves_months: below 0.5 → 25pts, above 3.0 → 0pts
+        "max": 15,
+        "range": (1.0, 6.0),        # <1 month = max points, >6 months = 0
         "direction": "lower_is_worse",
     },
     "income_declining": {
-        "max": 25,
-        # Only meaningful declines. Ignores small fluctuations (<5%).
-        # 40%+ drop = full points, 5% drop = start of scoring.
-        "range": (-0.40, -0.05),   # income_trend: below -0.40 → 25pts, above -0.05 → 0pts
+        "max": 15,
+        "range": (-0.30, -0.05),    # drop >30% = max points
         "direction": "lower_is_worse",
     },
     "overspending": {
-        "max": 20,
-        # Only flags significant overspend. Spending 101% is normal.
-        # 150%+ = full points, 110% = start of scoring.
-        "range": (1.10, 1.50),     # spending_ratio: above 1.50 → 20pts, below 1.10 → 0pts
+        "max": 15,
+        "range": (1.20, 1.50),      # 120–150% spending triggers
         "direction": "higher_is_worse",
     },
     "small_charity": {
-        "max": 10,
-        # Reduced weight. Only very small charities (<£25k) get meaningful points.
-        # Micro-charities under £5k = full points, over £100k = 0 points.
-        "range": (5_000, 100_000),  # income: below 5k → 10pts, above 100k → 0pts
+        "max": 5,
+        "range": (5_000, 50_000),   # under 5k = max points, >50k = 0
         "direction": "lower_is_worse",
     },
     "late_filing": {
-        "max": 10,
-        # Only flags seriously overdue filings.
-        # 3+ years = full points, 18 months = start of scoring.
-        "range": (547, 1095),       # days_since_filing: above 1095 → 10pts, below 547 → 0pts
+        "max": 5,
+        "range": (730, 1095),       # 2–3 years overdue
         "direction": "higher_is_worse",
     },
     "multi_year_decline": {
-        "max": 10,
-        # NEW: rewards consistency check — are multiple years declining?
-        # Requires 3+ years of data. Counts how many years show decline.
-        # 3+ declining years = full points, 1 = start.
-        "range": (1, 3),
+        "max": 5,
+        "range": (2, 3),            # 2–3 years declining
         "direction": "higher_is_worse",
     },
 }
 
-# Percentile normalization: after computing raw scores, map to percentiles
-# so that scores are always distributed across the full 0-100 range.
-# This prevents clustering at the top or bottom.
+# Percentile normalization: still enabled, but distribution bands slightly adjusted
 SCORE_NORMALIZATION = {
     "enabled": True,
-    # Target distribution band labels for the frontend
     "bands": {
-        "critical": 90,   # top 10% → scores 90-100
-        "high":     65,   # next 15% → scores 65-89
-        "medium":   30,   # next 30% → scores 30-64
-        "low":       0,   # bottom 45% → scores 0-29
+        "critical": 85,   # top 15% → scores 85-100
+        "high":     65,   # next 20% → 65-84
+        "medium":   35,   # next 35% → 35-64
+        "low":      0,    # bottom 30% → 0-34
     },
 }
+
 
 
 # ─── Anomaly Detection Thresholds ───────────────────────────────────────────
