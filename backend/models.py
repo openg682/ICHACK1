@@ -126,11 +126,11 @@ class Charity:
             "ar":  [ar.to_compact() for ar in self.annual_returns[:5]],
         }
 
-        if self.geo:
+        if self.geo and self.geo.lat is not None and self.geo.lng is not None:
             d["lat"] = round(self.geo.lat, 5)
             d["lng"] = round(self.geo.lng, 5)
-            d["dist"] = self.geo.district
-            d["ward"] = self.geo.ward
+            d["dist"] = self.geo.district or ""
+            d["ward"] = self.geo.ward or ""
 
         return d
 

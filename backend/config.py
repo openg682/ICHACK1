@@ -108,57 +108,72 @@ CLASSIFICATION_HOW = {
 
 
 # ─── Need Score Weights ─────────────────────────────────────────────────────
-# Each factor has a max contribution to the 0-100 need score.
-# Adjust these to change how the composite score is computed.
+# V2 Scoring: Uses continuous interpolation + percentile normalization.
+#
+# Each factor defines a curve rather than step thresholds.
+# The raw score is computed first, then normalized to percentiles
+# so the final 0-100 score is always well-distributed.
+#
+# "range" defines the (low, high) input values that map to (0, max_points).
+# Values outside the range are clamped.
 
 SCORE_WEIGHTS = {
     "low_reserves": {
-        "max": 30,
-        "thresholds": [
-            # (months_of_reserves, points)
-            (1,  30),   # <1 month  → 30 pts (critical)
-            (3,  20),   # <3 months → 20 pts
-            (6,  10),   # <6 months → 10 pts
-        ],
-        "default": 0,
+        "max": 25,
+        # Only triggers below 3 months (CC recommends 3-6 as healthy).
+        # <0.5 months = full points, 3+ months = 0 points.
+        "range": (0.5, 3.0),      # reserves_months: below 0.5 → 25pts, above 3.0 → 0pts
+        "direction": "lower_is_worse",
     },
     "income_declining": {
         "max": 25,
-        "thresholds": [
-            # (yoy_change, points)  — note: these are LESS-THAN
-            (-0.30, 25),  # >30% drop  → 25 pts
-            (-0.10, 15),  # >10% drop  → 15 pts
-            ( 0.00,  5),  # any drop   →  5 pts
-        ],
-        "default": 0,
+        # Only meaningful declines. Ignores small fluctuations (<5%).
+        # 40%+ drop = full points, 5% drop = start of scoring.
+        "range": (-0.40, -0.05),   # income_trend: below -0.40 → 25pts, above -0.05 → 0pts
+        "direction": "lower_is_worse",
     },
     "overspending": {
         "max": 20,
-        "thresholds": [
-            # (spend_ratio, points)
-            (1.20, 20),  # spending >120% of income
-            (1.00, 10),  # spending >100% of income
-        ],
-        "default": 0,
+        # Only flags significant overspend. Spending 101% is normal.
+        # 150%+ = full points, 110% = start of scoring.
+        "range": (1.10, 1.50),     # spending_ratio: above 1.50 → 20pts, below 1.10 → 0pts
+        "direction": "higher_is_worse",
     },
     "small_charity": {
-        "max": 15,
-        "thresholds": [
-            # (income_ceiling, points)
-            (10_000,    15),
-            (100_000,   10),
-            (1_000_000,  5),
-        ],
-        "default": 0,
+        "max": 10,
+        # Reduced weight. Only very small charities (<£25k) get meaningful points.
+        # Micro-charities under £5k = full points, over £100k = 0 points.
+        "range": (5_000, 100_000),  # income: below 5k → 10pts, above 100k → 0pts
+        "direction": "lower_is_worse",
     },
     "late_filing": {
         "max": 10,
-        "thresholds": [
-            # (days_since_filing, points)
-            (730, 10),   # >2 years
-            (547,  5),   # >18 months
-        ],
-        "default": 0,
+        # Only flags seriously overdue filings.
+        # 3+ years = full points, 18 months = start of scoring.
+        "range": (547, 1095),       # days_since_filing: above 1095 → 10pts, below 547 → 0pts
+        "direction": "higher_is_worse",
+    },
+    "multi_year_decline": {
+        "max": 10,
+        # NEW: rewards consistency check — are multiple years declining?
+        # Requires 3+ years of data. Counts how many years show decline.
+        # 3+ declining years = full points, 1 = start.
+        "range": (1, 3),
+        "direction": "higher_is_worse",
+    },
+}
+
+# Percentile normalization: after computing raw scores, map to percentiles
+# so that scores are always distributed across the full 0-100 range.
+# This prevents clustering at the top or bottom.
+SCORE_NORMALIZATION = {
+    "enabled": True,
+    # Target distribution band labels for the frontend
+    "bands": {
+        "critical": 90,   # top 10% → scores 90-100
+        "high":     65,   # next 15% → scores 65-89
+        "medium":   30,   # next 30% → scores 30-64
+        "low":       0,   # bottom 45% → scores 0-29
     },
 }
 

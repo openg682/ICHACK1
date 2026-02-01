@@ -48,8 +48,8 @@ def write_output(charities, output_js, output_json):
         f"// Source: Charity Commission for England & Wales (OGL v3.0)\n"
         f"// Generated: {now.strftime('%Y-%m-%d %H:%M')}\n"
         f"// Charities: {len(compact)}\n\n"
-        f"const CHARITY_DATA = {json.dumps(compact, separators=(',', ':'))};\n"
-        f"const DATA_META = {json.dumps({'source': 'Charity Commission for England & Wales', 'licence': 'Open Government Licence v3.0', 'generated': now.isoformat(), 'count': len(compact), 'isRealData': True}, separators=(',', ':'))};\n"
+        f"var CHARITY_DATA = {json.dumps(compact, separators=(',', ':'))};\n"
+        f"var DATA_META = {json.dumps({'source': 'Charity Commission for England & Wales', 'licence': 'Open Government Licence v3.0', 'generated': now.isoformat(), 'count': len(compact), 'isRealData': True}, separators=(',', ':'))};\n"
     )
 
     with open(output_js, "w", encoding="utf-8") as f:
