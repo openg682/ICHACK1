@@ -116,11 +116,19 @@ def create_app() -> "FastAPI":
     async def serve_frontend():
         return FileResponse(os.path.join(frontend_dir, "index.html"))
 
+    # Mount at /static for backward compat (if HTML uses /static/ prefix)
     app.mount(
         "/static",
         StaticFiles(directory=frontend_dir),
         name="static",
     )
+
+    # Also mount frontend assets at root paths so relative URLs
+    # in index.html (css/styles.css, js/app.js, data/demo_data.js) work
+    for subdir in ("css", "js", "data"):
+        sub_path = os.path.join(frontend_dir, subdir)
+        if os.path.isdir(sub_path):
+            app.mount(f"/{subdir}", StaticFiles(directory=sub_path), name=subdir)
 
     # ── API Routes ──
 

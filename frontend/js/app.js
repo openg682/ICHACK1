@@ -2,10 +2,11 @@
  * Charity Intelligence Map — Application Entry Point
  * =====================================================
  * Orchestrates all modules: map, search, sidebar, detail, filters.
- * Handles data loading from either the API server or embedded demo data.
+ * Handles data loading from either the API server, generated file,
+ * or the embedded demo data (loaded as a global var via <script> tag).
  */
 
-import { initMap, updateMap, getMap } from './map.js';
+import { initMap, updateMap } from './map.js';
 import { geocodePostcode } from './search.js';
 import { updateSidebar, updateHeaderStats } from './sidebar.js';
 import { openDetail, closeDetail } from './detail.js';
@@ -18,43 +19,44 @@ let currentResults = [];  // Charities in current search radius
 let searchRadius = 5;     // km
 let currentCenter = null; // { lat, lng, area }
 
-// ── Data Loading ──
+// ═══════════════════════════════════════════════════════════════════════════
+// DATA LOADING
+// ═══════════════════════════════════════════════════════════════════════════
 
-async function loadData() {
-  // Option 1: Try loading from API (if backend is running)
-  try {
-    const resp = await fetch('/api/health');
-    if (resp.ok) {
-      console.log('✓ Connected to API server');
-      // Data will be fetched per-search via /api/search
-      return 'api';
-    }
-  } catch (_) {}
-
-  // Option 2: Try loading the generated data file
-  if (typeof CHARITY_DATA !== 'undefined' && CHARITY_DATA.length > 0) {
-    allData = CHARITY_DATA;
+function loadData() {
+  // Option 1: Generated full dataset (loaded via <script> as global CHARITY_DATA)
+  if (typeof window.CHARITY_DATA !== 'undefined' && window.CHARITY_DATA.length > 0) {
+    allData = window.CHARITY_DATA;
     console.log(`✓ Loaded ${allData.length} charities from generated data file`);
     return 'file';
   }
 
-  // Option 3: Load embedded demo data
-  try {
-    const module = await import('./demo_data.js');
-    allData = module.DEMO_DATA;
+  // Option 2: Demo data (loaded via <script> as global DEMO_DATA)
+  if (typeof window.DEMO_DATA !== 'undefined' && window.DEMO_DATA.length > 0) {
+    allData = window.DEMO_DATA;
     console.log(`✓ Loaded ${allData.length} charities from demo data`);
     return 'demo';
-  } catch (_) {}
+  }
 
-  console.warn('⚠ No data source available');
+  console.warn('⚠ No data source available — check that demo_data.js loaded');
   return 'none';
 }
 
-// ── Search ──
+// ═══════════════════════════════════════════════════════════════════════════
+// SEARCH
+// ═══════════════════════════════════════════════════════════════════════════
 
 async function performSearch(postcode) {
   const input = document.getElementById('searchInput');
   input.value = postcode;
+
+  // Show loading state
+  document.getElementById('charityList').innerHTML = `
+    <div class="empty-state">
+      <div class="loading-spinner"></div>
+      <div class="empty-title">Searching...</div>
+      <div class="empty-desc">Looking up postcode ${postcode}</div>
+    </div>`;
 
   const geo = await geocodePostcode(postcode);
   if (!geo) {
@@ -106,15 +108,17 @@ function showError(msg) {
     </div>`;
 }
 
-// ── Event Binding ──
+// ═══════════════════════════════════════════════════════════════════════════
+// EVENT BINDING
+// ═══════════════════════════════════════════════════════════════════════════
 
 function bindEvents() {
-  // Search input
+  // Search input — Enter key
   document.getElementById('searchInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') performSearch(e.target.value);
   });
 
-  // Radius slider
+  // Radius slider — live label update
   const slider = document.getElementById('radiusSlider');
   const radiusLabel = document.getElementById('radiusValue');
 
@@ -123,18 +127,19 @@ function bindEvents() {
     radiusLabel.textContent = searchRadius + ' km';
   });
 
+  // Radius slider — re-search on release
   slider.addEventListener('change', () => {
     if (currentCenter) {
       displayResults(currentCenter.lat, currentCenter.lng, currentCenter.area);
     }
   });
 
-  // Detail overlay close
+  // Detail overlay — click backdrop to close
   document.getElementById('detailOverlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('detailOverlay')) closeDetail();
+    if (e.target.id === 'detailOverlay') closeDetail();
   });
 
-  // Keyboard shortcuts
+  // Keyboard — Escape to close detail
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') closeDetail();
   });
@@ -145,17 +150,31 @@ function bindEvents() {
   });
 }
 
-// ── Init ──
+// ═══════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════
 
-async function init() {
+function init() {
   initMap();
   bindEvents();
 
-  const source = await loadData();
-  console.log(`Data source: ${source}`);
+  const source = loadData();
+  console.log(`Data source: ${source} (${allData.length} charities)`);
+
+  if (allData.length === 0) {
+    document.getElementById('charityList').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">No data loaded</div>
+        <div class="empty-desc">
+          Check that demo_data.js is being served correctly.
+          Open the browser console for details.
+        </div>
+      </div>`;
+  }
 }
 
-// Expose for welcome buttons (onclick in HTML)
+// Expose for any inline onclick usage
 window.searchPostcode = performSearch;
 
 // Boot

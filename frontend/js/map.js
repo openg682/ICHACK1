@@ -1,52 +1,92 @@
-import { get, scoreToColour } from './utils.js';
+/**
+ * Charity Intelligence Map — Map Module
+ * =======================================
+ * Handles Leaflet map initialisation, marker rendering,
+ * search circle overlay, and map interactions.
+ */
 
-let map;
-let markers = [];
-let circle;
+import { getScoreColor } from './utils.js';
+
+let map, markerGroup, searchCircle;
 
 export function initMap() {
-  map = L.map('map').setView([51.5074, -0.1278], 12);
+  map = L.map('map', {
+    center: [52.5, -1.5],
+    zoom: 6,
+    zoomControl: false,
+    attributionControl: true,
+  });
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    maxZoom: 19,
   }).addTo(map);
+
+  L.control.zoom({ position: 'topright' }).addTo(map);
+
+  markerGroup = L.layerGroup().addTo(map);
+  return map;
 }
 
-export function renderMap(center, radiusKm, charities, onSelect) {
-  map.setView([center.lat, center.lng], 13);
+export function getMap() { return map; }
 
-  if (circle) map.removeLayer(circle);
-  circle = L.circle([center.lat, center.lng], {
+/**
+ * Update map markers for a set of charities around a center point.
+ */
+export function updateMap(lat, lng, radiusKm, charities, onMarkerClick) {
+  markerGroup.clearLayers();
+  if (searchCircle) map.removeLayer(searchCircle);
+
+  // Search radius circle
+  searchCircle = L.circle([lat, lng], {
     radius: radiusKm * 1000,
-    color: '#666',
-    fillOpacity: 0.05
+    color: '#2dd4bf',
+    fillColor: '#2dd4bf',
+    fillOpacity: 0.05,
+    weight: 1,
+    dashArray: '6,4',
   }).addTo(map);
 
-  markers.forEach(m => map.removeLayer(m));
-  markers = [];
+  // Search center pin
+  L.circleMarker([lat, lng], {
+    radius: 8,
+    color: '#fff',
+    fillColor: '#2dd4bf',
+    fillOpacity: 1,
+    weight: 2,
+  }).addTo(markerGroup);
 
-  charities.forEach(c => {
-    const lat = get(c, ['lat', 'latitude']);
-    const lng = get(c, ['lng', 'longitude']);
-    const score = get(c, ['need_score', 'ns'], 0);
+  // Charity markers
+  charities.forEach((c) => {
+    const size = Math.max(8, Math.min(16, 8 + (c.ns / 100) * 8));
+    const color = getScoreColor(c.ns);
 
-    if (lat == null || lng == null) return;
+    const marker = L.circleMarker([c.lat, c.lng], {
+      radius: size,
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.7,
+      weight: 1.5,
+    });
 
-    const marker = L.circleMarker([lat, lng], {
-      radius: 8,
-      fillColor: scoreToColour(score),
-      fillOpacity: 0.85,
-      color: '#222',
-      weight: 1
-    })
-      .addTo(map)
-      .on('click', () => onSelect(c));
+    marker.bindPopup(`
+      <div style="font-family:'Outfit',sans-serif">
+        <div style="font-weight:600;font-size:13px">${c.nm}</div>
+        <div style="font-family:monospace;font-size:12px;color:${color}">Need Score: ${c.ns}/100</div>
+        <div style="font-size:11px;color:#666;margin-top:4px">${(c.cat || []).join(', ')}</div>
+      </div>
+    `);
 
-    marker.bindTooltip(
-      `<strong>${c.name}</strong><br>Need score: ${score}`,
-      { direction: 'top' }
-    );
-
-    markers.push(marker);
+    marker.on('click', () => onMarkerClick(c));
+    marker.addTo(markerGroup);
   });
+
+  // Fit bounds
+  if (charities.length > 0) {
+    const bounds = L.latLngBounds(charities.map(c => [c.lat, c.lng]));
+    bounds.extend([lat, lng]);
+    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 14 });
+  } else {
+    map.setView([lat, lng], 13);
+  }
 }

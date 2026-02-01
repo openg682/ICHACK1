@@ -11,12 +11,17 @@
 <!-- Fonts -->
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-<!-- Custom CSS -->
-<link rel="stylesheet" href="/static/css/styles.css" />
+<!--
+  CSS path: works with both:
+    - FastAPI serving:  /static/css/styles.css
+    - Static file server from frontend/: css/styles.css
+  Adjust the path below to match your serving setup.
+-->
+<link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 <div class="app">
-  <!-- Header -->
+  <!-- ═══ Header ═══ -->
   <header class="header">
     <div class="logo">
       <div class="logo-icon">🎯</div>
@@ -45,7 +50,7 @@
     </div>
   </header>
 
-  <!-- Main -->
+  <!-- ═══ Main ═══ -->
   <div class="main">
     <div class="map-container">
       <div id="map"></div>
@@ -99,7 +104,7 @@
       </div>
     </div>
 
-    <!-- Sidebar -->
+    <!-- ═══ Sidebar ═══ -->
     <div class="sidebar">
       <div class="sidebar-header">
         <div class="sidebar-title">Charities by Need Score</div>
@@ -119,26 +124,27 @@
   </div>
 </div>
 
-<!-- Detail Overlay -->
+<!--
+  Detail Overlay
+  The .detail-panel is rendered INSIDE this div by detail.js.
+  Clicking the backdrop (this div) closes it.
+-->
 <div class="detail-overlay" id="detailOverlay"></div>
-<div id="detailPanel" style="display:none;"></div>
 
-<!-- Libraries -->
+<!-- ═══ Libraries ═══ -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Data -->
-<script src="/static/data/demo_data.js"></script>
-<script src="/static/data/charities_data.js" onerror="console.log('No generated data file — using demo data')"></script>
+<!--
+  Data files — loaded as plain <script> tags (NOT modules).
+  They set global `var DEMO_DATA` / `var CHARITY_DATA`.
 
-<!-- Frontend JS Modules -->
-<script type="module" src="/static/js/utils.js"></script>
-<script type="module" src="/static/js/map.js"></script>
-<script type="module" src="/static/js/search.js"></script>
-<script type="module" src="/static/js/sidebar.js"></script>
-<script type="module" src="/static/js/filters.js"></script>
-<script type="module" src="/static/js/detail.js"></script>
+  Order matters: charities_data.js (generated, full dataset) is tried first.
+  If it 404s, demo_data.js provides the fallback.
+-->
+<script src="data/charities_data.js" onerror="console.log('No generated data file — using demo')"></script>
+<script src="data/demo_data.js"></script>
 
-<!-- Main Orchestrator -->
-<script type="module" src="/static/js/app.js"></script>
+<!-- ═══ App modules ═══ -->
+<script type="module" src="js/app.js"></script>
 </body>
 </html>
