@@ -159,7 +159,7 @@ def load_charities(region: Optional[str] = None) -> Dict[str, Charity]:
 
         postcode = (row.get("charity_contact_postcode") or "").strip().upper()
 
-        # Region filter
+        # Location filter
         if region == "london":
             outward = postcode.split()[0] if " " in postcode else postcode[: len(postcode) - 3].strip()
             if outward not in LONDON_OUTWARD:
@@ -285,3 +285,5 @@ def load_areas_of_operation(charities: Dict[str, Charity]) -> None:
         area = (row.get("geographic_area_description") or "").strip()
         if area:
             charities[num].area_of_operation.append(area)
+
+# Back end test
